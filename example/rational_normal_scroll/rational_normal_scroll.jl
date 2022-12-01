@@ -90,7 +90,8 @@ function test_rational_normal_scroll(
     println("The projected norm of the residue is ", val_norm_push)
     if val_norm_push > LowRankSOS.VAL_TOL
         println("Spurious stationary point encountered at the linear forms ", round.(mat_push_interpolation, digits=LowRankSOS.NUM_DIG))
-        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(ForwardDiff.hessian(func_obj_val, mat_push_interpolation)))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_push_interpolation)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
 
@@ -100,7 +101,8 @@ function test_rational_normal_scroll(
     println("The projected norm of the residue is ", val_norm_grad)
     if val_norm_grad > LowRankSOS.VAL_TOL
         println("Spurious stationary point encountered at the linear forms ", round.(mat_grad_interpolation, digits=LowRankSOS.NUM_DIG))
-        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(ForwardDiff.hessian(func_obj_val, mat_grad_interpolation)))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_grad_interpolation)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
 
@@ -110,7 +112,8 @@ function test_rational_normal_scroll(
     println("The projected norm of the residue is ", val_norm_fiber)
     if val_norm_fiber > LowRankSOS.VAL_TOL
         println("Spurious stationary point encountered at the linear forms ", round.(mat_grad_fiber, digits=LowRankSOS.NUM_DIG))
-        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(ForwardDiff.hessian(func_obj_val, mat_grad_fiber)))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_grad_fiber)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
     println()

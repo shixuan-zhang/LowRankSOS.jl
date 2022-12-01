@@ -1,48 +1,38 @@
 # methods of moving in the fiber to escape local minima or stationary points
 
-# function that finds a moving direction in the fiber to reduce the rank
-function find_fiber_direction(
+# function that finds the perturbed linear forms by moving in the fiber
+function find_fiber_perturbation(
         mat_linear_forms::Matrix{Float64},
-        quad_ideal::QuadraticIdeal
+        quad_ideal::QuadraticIdeal;
+        val_threshold::Float64 = VAL_TOL
     )
-    # get the orthogonal basis of the complement of the given linear forms
-    mat_kernel = LinearAlgebra.nullspace(mat_linear_forms)
-    # get the dimensions
-    (num_square, dim) = size(mat_linear_forms)
-    null = size(mat_kernel, 2)
-    num_gen = length(quad_ideal.mat_gen)
     # check the dimensions
-    if null + num_square != dim
-        error("The rank and nullity do not match the dimension!")
+    (num_square, dim) = size(mat_linear_forms)
+    # get the orthogonal basis of the range and null spaces of the linear forms
+    vec_eigenval, mat_eigenvec = LinearAlgebra.eigen(mat_linear_forms' * mat_linear_forms, sortby=-)
+    mat_range = mat_eigenvec[:, vec_eigenval .> val_threshold]
+    mat_null = mat_eigenvec[:, vec_eigenval .<= val_threshold]
+    # get the dimensions
+    rank = size(mat_range, 2)
+    null = size(mat_null, 2)
+    # check the linear dependence of the given linear forms
+    if rank < num_square
+        println(" Perturb to linear forms with the same Gram matrix using linear dependence!")
+        return [(mat_eigenvec[:,1:rank] * LinearAlgebra.diagm(sqrt.(vec_eigenval[1:rank])))'; zeros(num_square-rank,dim)]
     end
+    # otherwise we need to move along the fiber to reduce the rank
+    num_gen = length(quad_ideal.mat_gen)
     # form the linear equations for solving the combination coefficients
     mat_ext = Matrix{Float64}(undef, dim*null+1, num_gen)
     for i=1:null, j=1:num_gen
-        mat_ext[((i-1)*dim+1):i*dim,j] = quad_ideal.mat_gen[j] * mat_kernel[:,i]
+        mat_ext[((i-1)*dim+1):i*dim,j] = quad_ideal.mat_gen[j] * mat_null[:,i]
     end
     # add the normalization equation to avoid trivial solutions (all zero)
     mat_ext[end,:] = ones(num_gen)
     vec_ext = [zeros(dim*null); 1.0]
     # solve for the linear combination coefficients
     vec_combination = mat_ext \ vec_ext
-    mat_direction = sum(vec_combination[i] .* quad_ideal.mat_gen[i] for i=1:num_gen)
-    return mat_direction
-end
-
-# function that finds the perturbed linear forms by moving in the fiber
-function find_fiber_perturbation(
-        mat_linear_forms::Matrix{Float64},
-        mat_fiber_dir::Matrix{Float64};
-        val_threshold::Float64 = VAL_TOL
-    )
-    # check the dimensions
-    (num_square, dim) = size(mat_linear_forms)
-    if dim != LinearAlgebra.checksquare(mat_fiber_dir)
-        error("The dimensions do not match!")
-    end
-    # get the range of the Gram matrix associated with the linear forms
-    vec_eigenval, mat_eigenvec = LinearAlgebra.eigen(mat_linear_forms' * mat_linear_forms, sortby=-)
-    mat_range = mat_eigenvec[:, vec_eigenval .> val_threshold]
+    mat_fiber_dir = sum(vec_combination[i] .* quad_ideal.mat_gen[i] for i=1:num_gen)
     # use generalized spectral decomposition to find the stepsize
     vec_genval, mat_genval = LinearAlgebra.eigen(mat_range' * mat_linear_forms' * mat_linear_forms * mat_range, mat_range' * mat_fiber_dir * mat_range)
     _, idx_step = findmin(abs.(vec_genval))
@@ -135,16 +125,21 @@ function solve_gradient_method_with_escapes(
                 println("  Near-zero gradient encountered at the current linear forms ", round.(mat_linear_forms,digits=NUM_DIG))
             end
             # find a perturbation that possibly escapes spurious stationary points
-            mat_fiber_dir = find_fiber_direction(mat_linear_forms, quad_ideal)
-            # get the new temporary linear forms and an escape direction
-            mat_linear_forms_temp = find_fiber_perturbation(mat_linear_forms, mat_fiber_dir)
-            if size(mat_direction) != (num_square, dim) ||
-                size(mat_linear_forms_temp) != (num_square, dim)
+            mat_linear_forms_temp = find_fiber_perturbation(mat_linear_forms, quad_ideal)
+            if size(mat_linear_forms_temp) != (num_square, dim)
+                println(" Cannot move along the fiber to escape the stationary point!")
                 flag_converge = true
                 break
             end
-            mat_linear_forms = mat_linear_forms_temp
+            # find an escape direction from the perturbed linear forms
             mat_direction = find_escape_direction(mat_linear_forms_temp, quad_form, map_quotient)
+            if size(mat_direction) != (num_square, dim)
+                println(" Cannot find an improving direction from the perturbed linear forms!")
+                flag_converge = true
+                break
+            end
+            # otherwise move along the escape direction to continue the descent algorithm
+            mat_linear_forms = mat_linear_forms_temp
             val_stepsize = 1.0
             if lev_print >= 0
                 println(" Search along an escape direction after perturbation in the fiber!")
