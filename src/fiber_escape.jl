@@ -142,10 +142,11 @@ function solve_gradient_method_with_escapes(
                 size(mat_linear_forms_temp) != (num_square, dim)
                 flag_converge = true
                 break
-            elseif lev_print >= 0
-                mat_linear_forms = mat_linear_forms_temp
-                mat_direction = find_escape_direction(mat_linear_forms_temp, quad_form, map_quotient)
-                val_stepsize = 1.0
+            end
+            mat_linear_forms = mat_linear_forms_temp
+            mat_direction = find_escape_direction(mat_linear_forms_temp, quad_form, map_quotient)
+            val_stepsize = 1.0
+            if lev_print >= 0
                 println(" Search along an escape direction after perturbation in the fiber!")
             end
         end
