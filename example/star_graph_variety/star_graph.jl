@@ -99,3 +99,88 @@ function test_star_graph(
     println("The total elapsed time is ", time() - time_start)
     println()
 end
+
+function test_batch_on_star_graph(
+        dim::Int;
+        mat_target::Matrix{Float64} = zeros(0,0),
+        str_method::String = "gradient",
+        num_square::Int = 0,
+        num_sample::Int = 100,
+        num_max_iter::Int = LowRankSOS.NUM_MAX_ITER
+    )
+    println("\n\nStart the batch experiment of low-rank sum-of-squares certification using the ",
+            str_method, " method on the star graph variety...")
+    # define a quadratic ideal corresponding to the star graph variety
+    ideal_star_graph = LowRankSOS.QuadraticIdeal(dim, define_star_graph_ideal(dim))
+    # get the orthogonal projection matrix associated with the canonical quotient map
+    map_quotient = LowRankSOS.construct_quotient_map(ideal_star_graph)
+    # set the target rank
+    rank = min(num_square, dim)
+    if rank <= 0
+        rank = 2
+    end
+    println("The dimension of the problem is ", dim, ", and the sought rank is ", rank)
+    # check if the starting linear forms and the target quadratic form are supplied
+    if size(mat_target) != (dim,dim)
+        # generate a target quadratic form randomly
+        println("The target quadratic form is chosen randomly...")
+        mat_aux = randn(dim, dim)
+        mat_target = mat_aux' * mat_aux
+    end
+    mat_target = LowRankSOS.convert_vec_to_sym(map_quotient * LowRankSOS.convert_sym_to_vec(mat_target))
+    # define the anonymous objective function for Hessian computation
+    func_obj_val = (mat_temp)->LinearAlgebra.norm(LowRankSOS.convert_vec_to_sym(map_quotient * LowRankSOS.convert_sym_to_vec(mat_target - mat_temp'*mat_temp), dim=dim))^2
+
+    # prepare the arrays for output storage
+    vec_runtime = fill(NaN, num_sample)
+    vec_residue = fill(NaN, num_sample)
+    ctr_residue = 0
+    vec_mineig = fill(NaN, num_sample)
+    # start the main loop of experiments
+    for idx_sample = 1:num_sample
+        # choose randomly a starting point
+        mat_start = randn(rank, dim)
+        # initialize the matrix of linear forms
+        mat_linear_forms = zeros(rank, dim)
+        # add timer for profiling
+        time_start = time()
+        # select the method based on the input string
+        if str_method == "pushforward"
+            mat_linear_forms = LowRankSOS.solve_push_method(rank, mat_target, map_quotient, 
+                                                            mat_linear_forms=mat_start, 
+                                                            num_max_iter=num_max_iter,
+                                                            lev_print=-1)
+        elseif str_method == "gradient"
+            mat_linear_forms = LowRankSOS.solve_gradient_method(rank, mat_target, map_quotient, 
+                                                                mat_linear_forms=mat_start, 
+                                                                str_line_search="interpolation",
+                                                                num_max_iter=num_max_iter,
+                                                                lev_print=-1)
+        elseif str_method == "gradient+fiber"
+            mat_linear_forms = LowRankSOS.solve_gradient_method_with_escapes(rank, mat_target, map_quotient, ideal_star_graph,
+                                                                             mat_linear_forms=mat_start, 
+                                                                             str_line_search="interpolation",
+                                                                             num_max_iter=num_max_iter,
+                                                                             lev_print=-1)
+        else
+            error("Unsupported optimization method for sum of squares certification!")
+        end
+        # save the computation time
+        time_finish = time() - time_start
+        vec_runtime[idx_sample] = time_finish
+        # compute the residual norm
+        val_residue = LowRankSOS.compute_norm_proj(mat_linear_forms'*mat_linear_forms-mat_target, map_quotient)
+        vec_residue[idx_sample] = val_residue
+        # check the second order stationary criterion for nonzero residues
+        if val_residue > LowRankSOS.VAL_TOL
+            ctr_residue += 1
+            mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_linear_forms)
+            vec_mineig[idx_sample] = LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp')
+        end
+    end
+    # print some statistics about the result
+    println("There is a nonzero residue in ", ctr_residue, " out of ", num_sample, " cases, ",
+            "among which ", sum(vec_mineig.<0.0), " are not second order stationary points.")           
+    println("The maximum computation time is ", maximum(vec_runtime),
+            " and the average is ", sum(vec_runtime)/num_sample)
+end
