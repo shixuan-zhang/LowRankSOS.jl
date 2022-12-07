@@ -126,7 +126,8 @@ function test_batch_on_Veronese_surface(;
         str_method::String = "gradient",
         num_square::Int = 0,
         num_sample::Int = 100,
-        num_max_iter::Int = LowRankSOS.NUM_MAX_ITER
+        num_max_iter::Int = LowRankSOS.NUM_MAX_ITER,
+        val_tol_res::Float64 = sqrt(LowRankSOS.VAL_TOL)
     )
     println("\n\nStart the batch experiment of low-rank sum-of-squares certification using the ",
             str_method, " method on the Veronese surface...")
@@ -156,7 +157,8 @@ function test_batch_on_Veronese_surface(;
     vec_runtime = fill(NaN, num_sample)
     vec_residue = fill(NaN, num_sample)
     ctr_residue = 0
-    vec_mineig = fill(NaN, num_sample)
+    vec_min_eigenval = fill(NaN, num_sample)
+    vec_norm_grad = fill(NaN, num_sample)
     # start the main loop of experiments
     for idx_sample = 1:num_sample
         # choose randomly a starting point
@@ -193,15 +195,20 @@ function test_batch_on_Veronese_surface(;
         val_residue = LowRankSOS.compute_norm_proj(mat_linear_forms'*mat_linear_forms-mat_target, map_quotient)
         vec_residue[idx_sample] = val_residue
         # check the second order stationary criterion for nonzero residues
-        if val_residue > LowRankSOS.VAL_TOL
+        if val_residue > val_tol_res
             ctr_residue += 1
-            mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_linear_forms)
-            vec_mineig[idx_sample] = LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp')
+            vec_gradient_temp = ForwardDiff.gradient(func_obj_val, mat_linear_forms)
+            vec_norm_grad[idx_sample] = LinearAlgebra.norm(vec_gradient_temp)
+            if vec_norm_grad[idx_sample] < LowRankSOS.VAL_TOL
+                mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_linear_forms)
+                vec_min_eigenval[idx_sample] = LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp')
+            end
         end
     end
     # print some statistics about the result
-    println("There is a nonzero residue in ", ctr_residue, " out of ", num_sample, " cases, ",
-            "among which ", sum(vec_mineig.<0.0), " are not second order stationary points.")           
-    println("The maximum computation time is ", maximum(vec_runtime),
-            " and the average is ", sum(vec_runtime)/num_sample)
+    println("The results of ", num_sample, " independent experiments with random starting points are summarized below:")
+    println("  Number of significant residues:      ", ctr_residue)
+    println("  Number of nonvanishing gradients:    ", sum(vec_norm_grad.>LowRankSOS.VAL_TOL))
+    println("  Number of indefinite Hessians:       ", sum(vec_min_eigenval.<-LowRankSOS.VAL_TOL))
+    println("  Average computation time in seconds: ", sum(vec_runtime)/num_sample)
 end
