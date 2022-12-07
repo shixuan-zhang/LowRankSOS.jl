@@ -16,6 +16,7 @@ include("methods.jl")
 include("solver_based.jl")
 include("direct_search.jl")
 include("fiber_escape.jl")
+include("trap_bypass.jl")
 
 
 end
