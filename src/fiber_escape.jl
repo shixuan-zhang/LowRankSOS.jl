@@ -17,7 +17,7 @@ function find_fiber_perturbation(
     null = size(mat_null, 2)
     # check the linear dependence of the given linear forms
     if rank < num_square
-        println(" Perturb to linear forms with the same Gram matrix using linear dependence!")
+        # println(" Perturb to linear forms with the same Gram matrix using linear dependence!")
         return [(mat_eigenvec[:,1:rank] * LinearAlgebra.diagm(sqrt.(vec_eigenval[1:rank])))'; zeros(num_square-rank,dim)]
     end
     # otherwise we need to move along the fiber to reduce the rank
@@ -48,8 +48,8 @@ function find_fiber_perturbation(
         println("DEBUG: the perturbation direction in the fiber is ", mat_fiber_dir)
         println("DEBUG: the perturbation stepsize is ", -vec_genval[idx_step])
         println("DEBUG: the eigenvalues of the perturbed Gram matrix is ", vec_eigenval)
-        =#
         println(" Cannot find linear forms with reduced rank in the fiber!")
+        =#
         return zeros(0,0)
     end
     return [(mat_eigenvec[:,idx_psd] * LinearAlgebra.diagm(sqrt.(vec_eigenval[idx_psd])))'; zeros(num_zero,dim)]
@@ -127,14 +127,18 @@ function solve_gradient_method_with_escapes(
             # find a perturbation that possibly escapes spurious stationary points
             mat_linear_forms_temp = find_fiber_perturbation(mat_linear_forms, quad_ideal)
             if size(mat_linear_forms_temp) != (num_square, dim)
-                println(" Cannot move along the fiber to escape the stationary point!")
+                if lev_print >= 0
+                    println(" Cannot move along the fiber to escape the stationary point!")
+                end
                 flag_converge = true
                 break
             end
             # find an escape direction from the perturbed linear forms
             mat_direction = find_escape_direction(mat_linear_forms_temp, quad_form, map_quotient)
             if size(mat_direction) != (num_square, dim)
-                println(" Cannot find an improving direction from the perturbed linear forms!")
+                if lev_print >= 0
+                    println(" Cannot find an improving direction from the perturbed linear forms!")
+                end
                 flag_converge = true
                 break
             end

@@ -7,6 +7,7 @@ import LinearAlgebra, SparseArrays
 # define common constants
 const NUM_DIG = 8
 const VAL_TOL = 1.0e-8
+const VAL_PEN = 1.0
 const NUM_MAX_ITER = 1000
 
 # include the source files of basic types and methods

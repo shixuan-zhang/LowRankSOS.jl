@@ -72,7 +72,7 @@ function solve_gradient_method_with_penalty(
         quad_form::Matrix{Float64},
         map_quotient::AbstractMatrix{Float64};
         mat_linear_forms::Matrix{Float64} = fill(0.0, (0,0)),
-        val_penalty::Float64 = sqrt(1/VAL_TOL),
+        val_penalty::Float64 = VAL_PEN,
         val_threshold::Float64 = VAL_TOL,
         lev_print::Int = 0,
         num_max_iter::Int = NUM_MAX_ITER,
@@ -149,7 +149,7 @@ function solve_push_method_with_penalty(
         mat_linear_forms::Matrix{Float64} = fill(0.0, (0,0)),
         val_stepsize::Float64 = 1.0,
         val_threshold::Float64 = VAL_TOL,
-        val_penalty::Float64 = sqrt(1/VAL_TOL),
+        val_penalty::Float64 = VAL_PEN,
         lev_print::Int = 0,
         num_max_iter::Int = NUM_MAX_ITER
     )
