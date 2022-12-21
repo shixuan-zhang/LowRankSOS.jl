@@ -70,7 +70,7 @@ function line_search_interpolation(
         func_obj_val::Function,
         func_obj_diff::Function;
         val_sample_step::Float64 = 1.0,
-        val_tolerance::Float64 = 1.0e-6
+        val_tolerance::Float64 = sqrt(VAL_TOL)
     )
     # get the current objective value
     val_current = func_obj_val(mat_linear_forms)

@@ -76,7 +76,6 @@ function compare_methods_on_scroll(
     # add timer for profiling
     time_start = time()
 
-#=
     # solve the nonlinear optimization model
     mat_nonlinear = LowRankSOS.solve_nonlinear_model(rank, mat_target, ideal_scroll, mat_linear_forms=mat_start)
     println("The projected norm of the residue is ", LowRankSOS.compute_norm_proj(mat_nonlinear'*mat_nonlinear-mat_target, map_quotient))
@@ -119,14 +118,14 @@ function compare_methods_on_scroll(
         println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
-=#
-    # solve the gradient method with penalty to bypass trapping stationary points
-    mat_grad_fiber = LowRankSOS.solve_gradient_method_with_penalty(rank, mat_target, map_quotient, mat_linear_forms=mat_start, str_line_search="interpolation", num_max_iter=num_max_iter,  lev_print=1)
-    val_norm_fiber = LowRankSOS.compute_norm_proj(mat_grad_fiber'*mat_grad_fiber-mat_target, map_quotient)
-    println("The projected norm of the residue is ", val_norm_fiber)
-    if val_norm_fiber > LowRankSOS.VAL_TOL
-        println("Spurious stationary point encountered at the linear forms ", round.(mat_grad_fiber, digits=LowRankSOS.NUM_DIG))
-        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_grad_fiber)
+    
+    # solve the pushforward method with penalty to bypass trapping stationary points
+    mat_grad_pen = LowRankSOS.solve_push_method_with_penalty(rank, mat_target, map_quotient, mat_linear_forms=mat_start,  num_max_iter=num_max_iter,  lev_print=1)
+    val_norm_pen = LowRankSOS.compute_norm_proj(mat_grad_pen'*mat_grad_pen-mat_target, map_quotient)
+    println("The projected norm of the residue is ", val_norm_pen)
+    if val_norm_pen > LowRankSOS.VAL_TOL
+        println("Spurious stationary point encountered at the linear forms ", round.(mat_grad_pen, digits=LowRankSOS.NUM_DIG))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_grad_pen)
         println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
@@ -198,6 +197,17 @@ function test_batch_on_scroll(
                                                                              str_line_search="interpolation",
                                                                              num_max_iter=num_max_iter,
                                                                              lev_print=-1)
+        elseif str_method == "gradient+bypass"
+            mat_linear_forms = LowRankSOS.solve_gradient_method_with_penalty(rank, mat_target, map_quotient, 
+                                                                             mat_linear_forms=mat_start, 
+                                                                             str_line_search="interpolation",
+                                                                             num_max_iter=num_max_iter,
+                                                                             lev_print=-1)
+        elseif str_method == "pushforward+bypass"
+            mat_linear_forms = LowRankSOS.solve_push_method_with_penalty(rank, mat_target, map_quotient, 
+                                                                         mat_linear_forms=mat_start, 
+                                                                         num_max_iter=num_max_iter,
+                                                                         lev_print=-1)
         else
             error("Unsupported optimization method for sum of squares certification!")
         end

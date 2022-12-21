@@ -33,7 +33,7 @@ function compute_obj_val_with_pen(
     )
     # get the dimension
     dim = LinearAlgebra.checksquare(quad_form)
-    mat_diff = quad_form - mat_linear_forms'*mat_linear_forms
+    mat_diff = mat_linear_forms'*mat_linear_forms - quad_form
     # calculate the norm of the difference
     val_objective = LinearAlgebra.norm(convert_vec_to_sym(map_quotient * convert_sym_to_vec(mat_diff), dim=dim))^2
     # calculate the penalty of the excursion
@@ -55,10 +55,10 @@ function compute_obj_grad_with_pen(
     # get the dimensions
     (rank, dim) = size(mat_linear_forms)
     # get the difference
-    mat_diff = quad_form - mat_linear_forms'*mat_linear_forms
+    mat_diff = mat_linear_forms'*mat_linear_forms - quad_form
     # calculate the gradients corresponding to the objective and the penalty
     vec_objective_grad = map_quotient * convert_sym_to_vec(mat_diff)
-    vec_excursion_grad = -map_excursion * convert_sym_to_vec(mat_diff)
+    vec_excursion_grad = map_excursion * convert_sym_to_vec(mat_diff)
     # calculate the gradient at each linear form
     mat_grad = 4 .* mat_linear_forms * convert_vec_to_sym(vec_objective_grad + val_penalty * vec_excursion_grad, dim=dim)
     return mat_grad
@@ -115,7 +115,6 @@ function solve_gradient_method_with_penalty(
         val_stepsize = LinearAlgebra.norm(mat_grad)
         mat_direction = -mat_grad ./ val_stepsize
         if str_line_search == "backtracking"
-            func_obj_val = (mat_temp)->compute_obj_val_with_pen(mat_temp, quad_form, map_quotient, val_penalty, map_excursion)
             val_stepsize = line_search_backtracking(mat_linear_forms, -mat_direction, func_obj_val, val_init_step=val_stepsize)
         elseif str_line_search == "interpolation"
             val_stepsize = line_search_interpolation(mat_linear_forms, mat_direction, func_obj_val, func_obj_diff)
@@ -136,6 +135,68 @@ function solve_gradient_method_with_penalty(
             println("The penalty gradient descent method with ", str_line_search, " line search has exceeded the maximum iterations!")
         end
         println("The penalty gradient descent method with ", str_line_search, " line search uses ", time() - time_start, " seconds.")
+    end
+    return mat_linear_forms
+end
+
+
+# penalty formulation for low-rank certification to bypass 
+# trapping spurious stationary points, solved using pushforward descent
+function solve_push_method_with_penalty(
+        num_square::Int,
+        quad_form::Matrix{Float64},
+        map_quotient::AbstractMatrix{Float64};
+        mat_linear_forms::Matrix{Float64} = fill(0.0, (0,0)),
+        val_stepsize::Float64 = 1.0,
+        val_threshold::Float64 = VAL_TOL,
+        val_penalty::Float64 = sqrt(1/VAL_TOL),
+        lev_print::Int = 0,
+        num_max_iter::Int = NUM_MAX_ITER
+    )
+    # get the dimension
+    dim = LinearAlgebra.checksquare(quad_form)
+    # generate a starting point randomly if not supplied
+    if size(mat_linear_forms) != (num_square, dim)
+        mat_linear_forms = randn(num_square, dim)
+        println("Warning: start the algorithm with a randomly picked point!")
+    end
+    # initialize the iteration info
+    if lev_print >= 0
+        println("\n=============================================================================")
+    end
+    idx_iter = 0
+    flag_converge = false
+    time_start = time()
+    map_excursion = construct_proj_excursion(quad_form-mat_linear_forms'*mat_linear_forms, map_quotient)
+    func_obj_val = (mat_temp)->compute_obj_val_with_pen(mat_temp, quad_form, map_quotient, val_penalty, map_excursion)
+    func_obj_diff = (mat_temp)->compute_obj_grad_with_pen(mat_temp, quad_form, map_quotient, val_penalty, map_excursion)
+    # start the main loop
+    while idx_iter <= num_max_iter
+        # get the projected direction
+        mat_direction = find_push_direction(mat_linear_forms, quad_form, map_quotient)
+        # select the stepsize based on the given line search method
+        val_stepsize = line_search_interpolation(mat_linear_forms, mat_direction, func_obj_val, func_obj_diff)
+        # terminate the loop if the stepsize is sufficiently small
+        if abs(val_stepsize) < val_threshold
+            flag_converge = true
+            break
+        end
+        # print the algorithm progress
+        if lev_print >= 1
+            println("  Iteration ", idx_iter, ": objective value = ", func_obj_val(mat_linear_forms), ", new step size = ", val_stepsize)
+        end
+        # update the current linear forms
+        mat_linear_forms += val_stepsize .* mat_direction
+        idx_iter += 1
+    end
+    # print the number of iterations and total time
+    if lev_print >= 0
+        if flag_converge
+            println("The penalty pushforward descent method with interpolation line search has converged within ", idx_iter, " iterations!")
+        else
+            println("The penalty pushforward descent method with interpolation line search has exceeded the maximum iterations!")
+        end
+        println("The penalty pushforward descent method with interpolation line search uses ", time() - time_start, " seconds.")
     end
     return mat_linear_forms
 end
