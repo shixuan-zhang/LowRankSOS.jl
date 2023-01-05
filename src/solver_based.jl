@@ -187,7 +187,11 @@ function solve_semidefinite_model(
     model = JuMP.Model()
     var_Gram_matrix = JuMP.@variable(model, [1:dim, 1:dim], PSD, base_name="G")
     var_combination = JuMP.@variable(model, [1:num_gen], base_name="a")
-    JuMP.@constraint(model, var_Gram_matrix + sum(var_combination[i] .* quad_ideal.mat_gen[i] for i in 1:num_gen) .== quad_form)
+    var_objective = JuMP.@variable(model, base_name="t")
+    expr_difference = var_Gram_matrix + sum(var_combination[i] .* quad_ideal.mat_gen[i] for i in 1:num_gen) - quad_form
+    # JuMP.@constraint(model, [vec(expr_difference); var_objective] in JuMP.SecondOrderCone())
+    # JuMP.@objective(model, Min, var_objective)
+    JuMP.@constraint(model, expr_difference .== 0)
     JuMP.@objective(model, Min, 0)
     # solve the optimization model using an external solver
     JuMP.set_optimizer(model, CSDP.Optimizer)
