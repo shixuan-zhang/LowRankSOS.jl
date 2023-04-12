@@ -148,3 +148,41 @@ function interpolate_quartic_polynomial(
     return C \ v
 end
 
+
+# function that finds a descent direction through limited memory of previous iterations
+# the implementation is the ``two-loop L-BFGS method'' 
+# (Algorithm 7.4 in Numerical Optimization, Nocedal and Wright 2006, pp.178)
+function find_descent_direction_limited_memory(
+        vec_gradient::Vector{Float64},
+        vec_updates_point::Vector{Vector{Float64}},
+        vec_updates_gradient::Vector{Vector{Float64}}
+    )
+    # check the size of the update histories
+    n = min(length(vec_updates_point), length(vec_updates_gradient))
+    if length(vec_updates_point) != length(vec_updates_gradient)
+        println("Warning: mismatch in the sizes of iteration histories!")
+    end
+    if n <= 0
+        return -vec_gradient
+    end
+    # initialize the temporary gradient vector
+    q = vec_gradient
+    α = zeros(n)
+    ρ = zeros(n)
+    # start the first for-loop
+    for i in n:-1:1
+        ρ[i] = inv(vec_updates_gradient[i]' * vec_updates_point[i])
+        α[i] = vec_updates_point[i]'*q * ρ[i]
+        q -= α[i].*vec_updates_gradient[i]
+    end
+    # conduct an initial approximation of the direction
+    r = (vec_updates_point[n]' * vec_updates_gradient[n]) /
+        (vec_updates_gradient[n]' * vec_updates_gradient[n]) .* q
+    # start the second for-loop
+    for i in 1:n
+        β = ρ[i] * (vec_updates_gradient[i]' * r)
+        r += vec_updates_point[i] .* (α[i]-β)
+    end
+    return -r
+end
+

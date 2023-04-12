@@ -107,6 +107,17 @@ function compare_methods_on_scroll(
         println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
+    
+    # solve the limited memory quasi-second-order method with interpolation line search
+    mat_limited_memory = LowRankSOS.solve_limited_memory_method(rank, mat_target, map_quotient, mat_linear_forms=mat_start, str_line_search="backtracking", num_max_iter=num_max_iter,  lev_print=1)
+    val_norm_grad = LowRankSOS.compute_norm_proj(mat_limited_memory'*mat_limited_memory-mat_target, map_quotient)
+    println("The projected norm of the residue is ", val_norm_grad)
+    if val_norm_grad > LowRankSOS.VAL_TOL
+        println("Spurious stationary point encountered at the linear forms ", round.(mat_limited_memory, digits=LowRankSOS.NUM_DIG))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_limited_memory)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
+    end
+    println("The total elapsed time is ", time() - time_start)
 
     # solve the gradient method with fiber movement to escape stationary points
     mat_grad_fiber = LowRankSOS.solve_gradient_method_with_escapes(rank, mat_target, map_quotient, ideal_scroll, mat_linear_forms=mat_start, str_line_search="interpolation", num_max_iter=num_max_iter,  lev_print=1)
@@ -188,9 +199,15 @@ function test_batch_on_scroll(
         elseif str_method == "gradient"
             mat_linear_forms = LowRankSOS.solve_gradient_method(rank, mat_target, map_quotient, 
                                                                 mat_linear_forms=mat_start, 
-                                                                str_line_search="interpolation",
+                                                                str_line_search="backtracking", #TODO: change back to interpolation
                                                                 num_max_iter=num_max_iter,
                                                                 lev_print=-1)
+        elseif str_method == "quasiNewton"
+            mat_linear_forms = LowRankSOS.solve_limited_memory_method(rank, mat_target, map_quotient, 
+                                                                      mat_linear_forms=mat_start, 
+                                                                      str_line_search="backtracking",
+                                                                      num_max_iter=num_max_iter,
+                                                                      lev_print=-1)
         elseif str_method == "gradient+fiber"
             mat_linear_forms = LowRankSOS.solve_gradient_method_with_escapes(rank, mat_target, map_quotient, ideal_scroll,
                                                                              mat_linear_forms=mat_start, 

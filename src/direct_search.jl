@@ -77,37 +77,65 @@ function line_search_interpolation(
     # get the current directional derivative (slope)
     val_slope = LinearAlgebra.dot(func_obj_diff(mat_linear_forms), mat_direction)
     # sample two points for interpolation
-    vec_points = [-1.0, 1.0]
-    vec_values = [func_obj_val(mat_linear_forms - mat_direction), 
-                  func_obj_val(mat_linear_forms + mat_direction)] .- val_current
-    vec_slopes = [LinearAlgebra.dot(func_obj_diff(mat_linear_forms - mat_direction), mat_direction), 
-                  LinearAlgebra.dot(func_obj_diff(mat_linear_forms + mat_direction), mat_direction)]
+    vec_points = [-val_sample_step, val_sample_step]
+    vec_values = [func_obj_val(mat_linear_forms - val_sample_step .* mat_direction), 
+                  func_obj_val(mat_linear_forms + val_sample_step .* mat_direction)] .- val_current
+    vec_slopes = [LinearAlgebra.dot(func_obj_diff(mat_linear_forms - val_sample_step .* mat_direction), mat_direction), 
+                  LinearAlgebra.dot(func_obj_diff(mat_linear_forms + val_sample_step .* mat_direction), mat_direction)]
+    # prepare inputs to the interpolation
+    while minimum(abs.(vec_values)) < 1.0
+        val_sample_step *= 2.0
+        vec_points = [-val_sample_step, val_sample_step]
+        vec_values = [func_obj_val(mat_linear_forms - val_sample_step .* mat_direction), 
+                      func_obj_val(mat_linear_forms + val_sample_step .* mat_direction)] .- val_current
+        vec_slopes = [LinearAlgebra.dot(func_obj_diff(mat_linear_forms - val_sample_step .* mat_direction), mat_direction), 
+                      LinearAlgebra.dot(func_obj_diff(mat_linear_forms + val_sample_step .* mat_direction), mat_direction)]
+        if val_sample_step > 1.0e8
+            error("ERROR: cannot find suitable sample step for interpolation!")
+        end
+    end
     # interpolate the quartic polynomial
     vec_coefficients = interpolate_quartic_polynomial(vec_points, vec_values, vec_slopes)
     # check if the interpolation is accurate
     if vec_coefficients[1] < 0.0 || abs(val_slope - vec_coefficients[4]) > val_tolerance
         println("DEBUG: the coefficients are ", vec_coefficients)
         println("DEBUG: the current slope is ", val_slope)
-        println("DEBUG: the interpolation input is ", vec_values, " and ", vec_slopes)
+        println("DEBUG: the values and slopes at sample steps ", val_sample_step, 
+                " are ", vec_values, " and ", vec_slopes)
         println("DEBUG: the current function value is ", val_current)
         println("DEBUG: the current function differential is ", func_obj_diff(mat_linear_forms))
         error("The quartic interpolation returns invalid results!")
     end
     # solve for critical points of the stepsize
     vec_critical_step = sort(find_cubic_roots(vec_coefficients .* [4,3,2,1]))
+    # initialize the outputs
+    val_step_output = 1.0
     # compare the function values to determine the stepsize
     if length(vec_critical_step) == 0
         return 0.0
     elseif length(vec_critical_step) == 1
-        return vec_critical_step[1]
-    end
-    val_obj1 = func_obj_val(mat_linear_forms + vec_critical_step[1] .* mat_direction)
-    val_obj3 = func_obj_val(mat_linear_forms + vec_critical_step[3] .* mat_direction)
-    if val_obj1 <= val_obj3
-        return vec_critical_step[1]
+        val_step_output = vec_critical_step[1]
     else
-        return vec_critical_step[3]
+        val_obj1 = func_obj_val(mat_linear_forms + vec_critical_step[1] .* mat_direction)
+        val_obj3 = func_obj_val(mat_linear_forms + vec_critical_step[3] .* mat_direction)
+        if val_obj1 <= val_obj3
+            val_step_output = vec_critical_step[1]
+        else
+            val_step_output = vec_critical_step[3]
+        end
     end
+    # check if the new objective value is smaller
+    val_obj_next = func_obj_val(mat_linear_forms + val_step_output .* mat_direction)
+    if val_obj_next > val_current
+        println("DEBUG: the coefficients are ", vec_coefficients)
+        println("DEBUG: the current slope is ", val_slope)
+        println("DEBUG: the values and slopes at sample steps ", val_sample_step, 
+                " are ", vec_values, " and ", vec_slopes)
+        println("DEBUG: the current function value is ", val_current)
+        println("DEBUG: the next function value will be ", val_obj_next)
+        error("The interpolation method fails to give a descent stepsize!")
+    end
+    return val_step_output
 end
 
 
@@ -159,7 +187,7 @@ function solve_gradient_method(
         mat_direction = -mat_grad ./ val_stepsize
         if str_line_search == "backtracking"
             func_obj_val = (mat_temp)->compute_obj_val(mat_temp, quad_form, map_quotient)
-            val_stepsize = line_search_backtracking(mat_linear_forms, -mat_direction, func_obj_val, val_init_step=val_stepsize)
+            val_stepsize = line_search_backtracking(mat_linear_forms, mat_grad, func_obj_val, val_init_step=val_stepsize)
         elseif str_line_search == "interpolation"
             val_stepsize = line_search_interpolation(mat_linear_forms, mat_direction, func_obj_val, func_obj_diff)
         end
@@ -184,7 +212,110 @@ function solve_gradient_method(
 end
 
 
-# function that finds a descent direction that can be pushed to be close to the difference of quadratic forms
+# limited-memory quasi-second-order method for low-rank certification
+function solve_limited_memory_method(
+        num_square::Int,
+        quad_form::Matrix{Float64},
+        map_quotient::AbstractMatrix{Float64},
+        num_update_size::Int = NUM_MEM_SIZE;
+        mat_linear_forms::Matrix{Float64} = fill(0.0, (0,0)),
+        val_threshold::Float64 = VAL_TOL,
+        lev_print::Int = 0,
+        num_max_iter::Int = NUM_MAX_ITER,
+        str_line_search::String = "none"
+    )
+    # get the dimension
+    dim = LinearAlgebra.checksquare(quad_form)
+    # generate a starting point randomly if not supplied
+    if size(mat_linear_forms) != (num_square, dim)
+        mat_linear_forms = randn(num_square, dim)
+        println("Warning: start the algorithm with a randomly picked point!")
+    end
+    # initialize the iteration info
+    if lev_print >= 0
+        println("\n=============================================================================")
+    end
+    idx_iter = 0
+    flag_converge = false
+    time_start = time()
+    mat_init_grad = compute_obj_grad(mat_linear_forms, quad_form, map_quotient)
+    norm_init = LinearAlgebra.norm(mat_linear_forms)
+    norm_init_grad = LinearAlgebra.norm(mat_init_grad)
+    val_rescale = min(1.0, (norm_init / norm_init_grad))
+    val_term = max(val_threshold * sqrt(num_square * dim), val_threshold * norm_init)
+    func_obj_val = (mat_temp)->compute_obj_val(mat_temp, quad_form, map_quotient)
+    func_obj_diff = (mat_temp)->compute_obj_grad(mat_temp, quad_form, map_quotient)
+    # initialize the iteration history for limited memory approximation of descent direction
+    vec_updates_point = Vector{Float64}[]
+    vec_updates_gradient = Vector{Float64}[]
+    vec_grad_old = vec(mat_init_grad)
+    vec_point_old = vec(mat_linear_forms)
+    mat_grad = mat_init_grad
+    # start the main loop
+    while idx_iter <= num_max_iter
+        # find the descent direction using the limited memory of history updates
+        #println("DEBUG: the history of point updates is ", vec_updates_point)
+        #println("DEBUG: the history of gradient updates is ", vec_updates_gradient)
+        vec_descent = find_descent_direction_limited_memory(vec(mat_grad), vec_updates_point, vec_updates_gradient)
+        #println("DEBUG: the found descent direction is ", vec_descent)
+        mat_direction = reshape(vec_descent, (num_square,dim))
+        # select the stepsize based on the given line search method
+        val_stepsize = max(1.0, abs(inv(LinearAlgebra.dot(mat_direction,mat_grad))))
+        if str_line_search == "backtracking"
+            func_obj_val = (mat_temp)->compute_obj_val(mat_temp, quad_form, map_quotient)
+            val_stepsize = line_search_backtracking(mat_linear_forms, mat_grad, func_obj_val, val_init_step=val_stepsize, mat_direction=mat_direction)
+        elseif str_line_search == "interpolation"
+            val_stepsize = line_search_interpolation(mat_linear_forms, mat_direction, func_obj_val, func_obj_diff)
+        end
+        # print the algorithm progress
+        if lev_print >= 1
+            println("  Iteration ", idx_iter, ": objective value = ", func_obj_val(mat_linear_forms), ", new step size = ", val_stepsize)
+        end
+        # update the current linear forms
+        mat_linear_forms += val_stepsize .* mat_direction
+        vec_point_new = vec(mat_linear_forms)
+        # get the gradient
+        mat_grad = compute_obj_grad(mat_linear_forms, quad_form, map_quotient)
+        if any(isnan.(mat_grad))
+            println("DEBUG: the linear forms are ", mat_linear_forms)
+            error("ERROR: the gradient contains NaN!")
+        end
+        vec_grad_new = vec(mat_grad)
+        # check if the gradient is sufficiently small
+        if LinearAlgebra.norm(mat_grad) < val_term 
+            flag_converge = true
+            break
+        end
+        # save the update history
+        push!(vec_updates_point, vec_point_new-vec_point_old)
+        push!(vec_updates_gradient, vec_grad_new-vec_grad_old)
+        vec_point_old = vec_point_new
+        vec_grad_old = vec_grad_new
+        if length(vec_updates_point) > num_update_size
+            popfirst!(vec_updates_point)
+        end
+        if length(vec_updates_gradient) > num_update_size
+            popfirst!(vec_updates_gradient)
+        end
+        idx_iter += 1
+    end
+    # print the number of iterations and total time
+    if lev_print >= 0
+        if flag_converge
+            println("The limited memory method with ", str_line_search, " line search has converged within ", idx_iter, " iterations!")
+        else
+            println("The limited memory method with ", str_line_search, " line search has exceeded the maximum iterations!")
+        end
+        println("The limited memory method with ", str_line_search, " line search uses ", time() - time_start, " seconds.")
+    end
+    return mat_linear_forms
+end
+
+
+
+
+## Obsolete second-order methods (due to high per-iteration costs)
+# function that finds a descent direction that can be pushforwarded to be close to the difference of quadratic forms
 function find_push_direction(
         mat_linear_forms::Matrix{Float64}, 
         quad_form::Matrix{Float64}, 
