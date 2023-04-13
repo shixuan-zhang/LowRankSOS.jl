@@ -39,7 +39,7 @@ function line_search_backtracking(
         val_reduction::Float64 = 0.5,
         val_init_step::Float64 = 1.0,
         mat_direction::Matrix{Float64} = -mat_gradient,
-        num_max_step::Int = 100
+        val_min_step::Float64 = VAL_TOL
     )
     # get the current objective value
     val_current = func_obj_val(mat_linear_forms)
@@ -49,7 +49,7 @@ function line_search_backtracking(
     idx_iter = 0
     val_step = val_init_step
     # start the main loop
-    while idx_iter <= num_max_step
+    while true
         # calculate the objective difference
         val_obj_temp = func_obj_val(mat_linear_forms + val_step .* mat_direction)
         # check if there is sufficient descent
@@ -58,9 +58,12 @@ function line_search_backtracking(
         else
             val_step *= val_reduction
         end
+        if val_step < val_min_step
+            println("DEBUG: step size given by backtracking line search is too small!")
+            return val_step
+        end
         idx_iter += 1
     end
-    return val_step
 end
 
 # line search method using exact quartic polynomial interpolation and 1-dim global optimization
@@ -75,7 +78,8 @@ function line_search_interpolation(
     # get the current objective value
     val_current = func_obj_val(mat_linear_forms)
     # get the current directional derivative (slope)
-    val_slope = LinearAlgebra.dot(func_obj_diff(mat_linear_forms), mat_direction)
+    mat_grad = func_obj_diff(mat_linear_forms)
+    val_slope = LinearAlgebra.dot(mat_grad, mat_direction)
     # sample two points for interpolation
     vec_points = [-val_sample_step, val_sample_step]
     vec_values = [func_obj_val(mat_linear_forms - val_sample_step .* mat_direction), 
@@ -133,7 +137,13 @@ function line_search_interpolation(
                 " are ", vec_values, " and ", vec_slopes)
         println("DEBUG: the current function value is ", val_current)
         println("DEBUG: the next function value will be ", val_obj_next)
-        error("The interpolation method fails to give a descent stepsize!")
+        # return the result from backtracking method instead
+        println("The interpolation method fails to give a descent stepsize; use backtracking instead...")
+        return line_search_backtracking(mat_linear_forms,
+                                        mat_grad,
+                                        func_obj_val,
+                                        val_init_step = max(1.0,val_step_output)
+                                       )
     end
     return val_step_output
 end
@@ -260,7 +270,10 @@ function solve_limited_memory_method(
         #println("DEBUG: the found descent direction is ", vec_descent)
         mat_direction = reshape(vec_descent, (num_square,dim))
         # select the stepsize based on the given line search method
-        val_stepsize = max(1.0, abs(inv(LinearAlgebra.dot(mat_direction,mat_grad))))
+        val_stepsize = 1.0
+        if abs(LinearAlgebra.dot(mat_direction,mat_grad)) > VAL_TOL
+            val_stepsize = max(1.0, inv(abs(LinearAlgebra.dot(mat_direction,mat_grad))))
+        end
         if str_line_search == "backtracking"
             func_obj_val = (mat_temp)->compute_obj_val(mat_temp, quad_form, map_quotient)
             val_stepsize = line_search_backtracking(mat_linear_forms, mat_grad, func_obj_val, val_init_step=val_stepsize, mat_direction=mat_direction)
@@ -278,6 +291,9 @@ function solve_limited_memory_method(
         mat_grad = compute_obj_grad(mat_linear_forms, quad_form, map_quotient)
         if any(isnan.(mat_grad))
             println("DEBUG: the linear forms are ", mat_linear_forms)
+            println("DEBUG: the direction matrix is ", mat_direction)
+            println("DEBUG: the update history for points is ", vec_updates_point)
+            println("DEBUG: the update history for gradients is ", vec_updates_gradient)
             error("ERROR: the gradient contains NaN!")
         end
         vec_grad_new = vec(mat_grad)
