@@ -39,7 +39,8 @@ function line_search_backtracking(
         val_reduction::Float64 = 0.5,
         val_init_step::Float64 = 1.0,
         mat_direction::Matrix{Float64} = -mat_gradient,
-        val_min_step::Float64 = VAL_TOL
+        val_min_step::Float64 = VAL_TOL,
+        lev_print::Int = -1
     )
     # get the current objective value
     val_current = func_obj_val(mat_linear_forms)
@@ -59,7 +60,9 @@ function line_search_backtracking(
             val_step *= val_reduction
         end
         if val_step < val_min_step
-            println("DEBUG: step size given by backtracking line search is too small!")
+            if lev_print >= 0
+                println("DEBUG: step size given by backtracking line search is too small!")
+            end
             return val_step
         end
         idx_iter += 1
@@ -73,7 +76,8 @@ function line_search_interpolation(
         func_obj_val::Function,
         func_obj_diff::Function;
         val_sample_step::Float64 = 1.0,
-        val_tolerance::Float64 = sqrt(VAL_TOL)
+        val_tolerance::Float64 = sqrt(VAL_TOL),
+        lev_print::Int = -1
     )
     # get the current objective value
     val_current = func_obj_val(mat_linear_forms)
@@ -131,14 +135,16 @@ function line_search_interpolation(
     # check if the new objective value is smaller
     val_obj_next = func_obj_val(mat_linear_forms + val_step_output .* mat_direction)
     if val_obj_next > val_current
-        println("DEBUG: the coefficients are ", vec_coefficients)
-        println("DEBUG: the current slope is ", val_slope)
-        println("DEBUG: the values and slopes at sample steps ", val_sample_step, 
-                " are ", vec_values, " and ", vec_slopes)
-        println("DEBUG: the current function value is ", val_current)
-        println("DEBUG: the next function value will be ", val_obj_next)
+        if lev_print >= 0
+            println("DEBUG: the coefficients are ", vec_coefficients)
+            println("DEBUG: the current slope is ", val_slope)
+            println("DEBUG: the values and slopes at sample steps ", val_sample_step, 
+                    " are ", vec_values, " and ", vec_slopes)
+            println("DEBUG: the current function value is ", val_current)
+            println("DEBUG: the next function value will be ", val_obj_next)
+            println("The interpolation method fails to give a descent stepsize; use backtracking instead...")
+        end
         # return the result from backtracking method instead
-        println("The interpolation method fails to give a descent stepsize; use backtracking instead...")
         return line_search_backtracking(mat_linear_forms,
                                         mat_grad,
                                         func_obj_val,

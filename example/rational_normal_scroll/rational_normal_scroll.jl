@@ -109,7 +109,7 @@ function compare_methods_on_scroll(
     println("The total elapsed time is ", time() - time_start)
     
     # solve the limited memory quasi-second-order method with interpolation line search
-    mat_limited_memory = LowRankSOS.solve_limited_memory_method(rank, mat_target, map_quotient, mat_linear_forms=mat_start, str_line_search="interpolation", num_max_iter=num_max_iter,  lev_print=1)
+    mat_limited_memory = LowRankSOS.solve_limited_memory_method(rank, mat_target, map_quotient, mat_linear_forms=mat_start, str_line_search="backtracking", num_max_iter=num_max_iter,  lev_print=1)
     val_norm_grad = LowRankSOS.compute_norm_proj(mat_limited_memory'*mat_limited_memory-mat_target, map_quotient)
     println("The projected norm of the residue is ", val_norm_grad)
     if val_norm_grad > LowRankSOS.VAL_TOL
