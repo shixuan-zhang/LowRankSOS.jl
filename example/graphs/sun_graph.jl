@@ -1,44 +1,68 @@
-# example of varieties associated with star graphs
+# example of varieties associated with sun graphs
 
 include("../../src/LowRankSOS.jl")
 using .LowRankSOS
 
 using LinearAlgebra, ForwardDiff
 
-function define_star_graph_ideal(
-        dim::Int
+function define_sun_graph_ideal(
+        cycle::Int,
+        clique::Int = 3
     )
+    # set the dimension
+    dim = cycle * (clique - 1)
     # calculate the number of non-edges
-    num_non_edge = (dim-1)*(dim-2) ÷ 2
+    num_non_edge = dim*(dim-1) ÷ 2 - (clique-1)*clique ÷ 2 * cycle
     # initialize the output
     vec_mat_gen = Vector{Matrix{Float64}}(undef, num_non_edge)
     for i =1:num_non_edge
         vec_mat_gen[i] = zeros(dim,dim)
     end
     # loop over all non-edges
-    for i = 1:(dim-1)
-        for j = 1:(i-1)
-            idx_mat = j + (i-1)*(i-2) ÷ 2
+    idx_mat = 1
+    # loop over all other vertices paired with the first vertex
+    let i = 1
+        for j = (clique+1):(dim-clique+1)
             vec_mat_gen[idx_mat][i,j] = 1
             vec_mat_gen[idx_mat][j,i] = 1
+            idx_mat += 1
         end
+    end
+    # loop over all other vertex pairs
+    for i = 2:dim
+        idx_clique = div(i-1,clique-1)+1
+        for j = (idx_clique*(clique-1)+2):dim
+            vec_mat_gen[idx_mat][i,j] = 1
+            vec_mat_gen[idx_mat][j,i] = 1
+            idx_mat += 1
+        end
+    end
+    # check if the total number of matrices matches the calculation
+    if idx_mat != num_non_edge+1
+        println("The estimated number of non-edges is ", num_non_edge)
+        println("The looped number of non-edges is ", idx_mat-1)
+        error("ERROR: incorrect number of non-edges for the sun graph!")
     end
     return vec_mat_gen
 end
 
-function test_star_graph(
-        dim::Int;
+function test_sun_graph(
+        cycle::Int,
+        clique::Int = 3;
         mat_start::Matrix{Float64} = zeros(0,0),
         mat_target::Matrix{Float64} = zeros(0,0)
     )
-    println("\n\nStart the test of low-rank sum-of-squares certification on the variety corresponding to a star graph...")
-    # define a quadratic ideal corresponding to the star graph
-    ideal_star = LowRankSOS.QuadraticIdeal(dim, define_star_graph_ideal(dim))
+    println("\n\nStart the test of low-rank sum-of-squares certification on the variety corresponding to a sun graph")
+    println("with cycle size ", cycle, " and clique sizes ", clique, " ...")
+    # set the dimension
+    dim = cycle * (clique - 1)
+    # define a quadratic ideal corresponding to the sun graph
+    ideal_sun_graph = LowRankSOS.QuadraticIdeal(dim, define_sun_graph_ideal(cycle,clique))
     # get the orthogonal projection matrix associated with the canonical quotient map
-    map_quotient = LowRankSOS.construct_quotient_map(ideal_star)
+    map_quotient = LowRankSOS.construct_quotient_map(ideal_sun_graph)
 
     # set the target rank
-    rank = 2 
+    rank = max(dim+3-cycle, clique)
     println("The dimension of the problem is ", dim, ", and the sought rank is ", rank)
     # check if the starting linear forms and the target quadratic form are supplied
     if size(mat_start) != (rank,dim)
@@ -61,12 +85,12 @@ function test_star_graph(
     time_start = time()
 
     # solve the nonlinear optimization model
-    mat_nonlinear = LowRankSOS.solve_nonlinear_model(rank, mat_target, ideal_star, mat_linear_forms=mat_start)
+    mat_nonlinear = LowRankSOS.solve_nonlinear_model(rank, mat_target, ideal_sun_graph, mat_linear_forms=mat_start)
     println("The projected norm of the residue is ", LowRankSOS.compute_norm_proj(mat_nonlinear'*mat_nonlinear-mat_target, map_quotient))
     println("The total elapsed time is ", time() - time_start)
 
     # solve the semidefinite optimization model
-    mat_semidefinite = LowRankSOS.solve_semidefinite_model(mat_target, ideal_star)
+    mat_semidefinite = LowRankSOS.solve_semidefinite_model(mat_target, ideal_sun_graph)
     println("The projected norm of the residue is ", LowRankSOS.compute_norm_proj(mat_semidefinite-mat_target, map_quotient))
     println("The total elapsed time is ", time() - time_start)
 
@@ -81,11 +105,22 @@ function test_star_graph(
     println("The projected norm of the residue is ", val_norm_grad)
     if val_norm_grad > LowRankSOS.VAL_TOL
         println("Spurious stationary point encountered at the linear forms ", round.(mat_grad_interpolation, digits=LowRankSOS.NUM_DIG))
-        println("The eigenvalues of the Hessian is ", LinearAlgebra.eigen(ForwardDiff.hessian(func_obj_val, mat_grad_interpolation)).values)
-        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(ForwardDiff.hessian(func_obj_val, mat_grad_interpolation)))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_grad_interpolation)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
-
+    
+    # solve the limited memory quasi-second-order method with interpolation line search
+    mat_limited_memory = LowRankSOS.solve_limited_memory_method(rank, mat_target, map_quotient, mat_linear_forms=mat_start, str_line_search="backtracking", lev_print=1)
+    val_norm_grad = LowRankSOS.compute_norm_proj(mat_limited_memory'*mat_limited_memory-mat_target, map_quotient)
+    println("The projected norm of the residue is ", val_norm_grad)
+    if val_norm_grad > LowRankSOS.VAL_TOL
+        println("Spurious stationary point encountered at the linear forms ", round.(mat_limited_memory, digits=LowRankSOS.NUM_DIG))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_limited_memory)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
+    end
+    println("The total elapsed time is ", time() - time_start)
+    
     # solve the pushforward direction method with interpolation line search
     mat_push_interpolation = LowRankSOS.solve_push_method(rank, mat_target, map_quotient, mat_linear_forms=mat_start, lev_print=1)
     println("The projected norm of the residue is ", LowRankSOS.compute_norm_proj(mat_push_interpolation'*mat_push_interpolation-mat_target, map_quotient))
@@ -93,15 +128,16 @@ function test_star_graph(
     println("The projected norm of the residue is ", val_norm_push)
     if val_norm_push > LowRankSOS.VAL_TOL
         println("Spurious stationary point encountered at the linear forms ", round.(mat_push_interpolation, digits=LowRankSOS.NUM_DIG))
-        println("The eigenvalues of the Hessian is ", LinearAlgebra.eigen(ForwardDiff.hessian(func_obj_val, mat_push_interpolation)).values)
-        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(ForwardDiff.hessian(func_obj_val, mat_push_interpolation)))
+        mat_Hessian_temp = ForwardDiff.hessian(func_obj_val, mat_push_interpolation)
+        println("The smallest eigenvalue of the Hessian is ", LinearAlgebra.eigmin(mat_Hessian_temp + mat_Hessian_temp'))
     end
     println("The total elapsed time is ", time() - time_start)
     println()
 end
 
-function test_batch_on_star_graph(
-        dim::Int;
+function test_batch_on_sun_graph(
+        cycle::Int,
+        clique::Int = 3;
         mat_target::Matrix{Float64} = zeros(0,0),
         str_method::String = "gradient",
         num_square::Int = 0,
@@ -110,15 +146,17 @@ function test_batch_on_star_graph(
         val_tol_res::Float64 = sqrt(LowRankSOS.VAL_TOL)
     )
     println("\n\nStart the batch experiment of low-rank sum-of-squares certification using the ",
-            str_method, " method on the star graph variety...")
-    # define a quadratic ideal corresponding to the star graph variety
-    ideal_star_graph = LowRankSOS.QuadraticIdeal(dim, define_star_graph_ideal(dim))
+            str_method, " method on the sun graph variety...")
+    # set the dimension
+    dim = cycle * (clique - 1)
+    # define a quadratic ideal corresponding to the sun graph variety
+    ideal_sun_graph = LowRankSOS.QuadraticIdeal(dim, define_sun_graph_ideal(cycle,clique))
     # get the orthogonal projection matrix associated with the canonical quotient map
-    map_quotient = LowRankSOS.construct_quotient_map(ideal_star_graph)
+    map_quotient = LowRankSOS.construct_quotient_map(ideal_sun_graph)
     # set the target rank
     rank = min(num_square, dim)
     if rank <= 0
-        rank = 2
+        rank = max(dim+3-cycle, clique)
     end
     println("The dimension of the problem is ", dim, ", and the sought rank is ", rank)
     # check if the starting linear forms and the target quadratic form are supplied
@@ -158,12 +196,29 @@ function test_batch_on_star_graph(
                                                                 str_line_search="interpolation",
                                                                 num_max_iter=num_max_iter,
                                                                 lev_print=-1)
+        elseif str_method == "quasiNewton"
+            mat_linear_forms = LowRankSOS.solve_limited_memory_method(rank, mat_target, map_quotient, 
+                                                                      mat_linear_forms=mat_start, 
+                                                                      str_line_search="backtracking",
+                                                                      num_max_iter=num_max_iter,
+                                                                      lev_print=-1)
         elseif str_method == "gradient+fiber"
-            mat_linear_forms = LowRankSOS.solve_gradient_method_with_escapes(rank, mat_target, map_quotient, ideal_star_graph,
+            mat_linear_forms = LowRankSOS.solve_gradient_method_with_escapes(rank, mat_target, map_quotient, ideal_sun_graph,
                                                                              mat_linear_forms=mat_start, 
                                                                              str_line_search="interpolation",
                                                                              num_max_iter=num_max_iter,
                                                                              lev_print=-1)
+        elseif str_method == "gradient+bypass"
+            mat_linear_forms = LowRankSOS.solve_gradient_method_with_penalty(rank, mat_target, map_quotient, 
+                                                                             mat_linear_forms=mat_start, 
+                                                                             str_line_search="interpolation",
+                                                                             num_max_iter=num_max_iter,
+                                                                             lev_print=-1)
+        elseif str_method == "pushforward+bypass"
+            mat_linear_forms = LowRankSOS.solve_push_method_with_penalty(rank, mat_target, map_quotient, 
+                                                                         mat_linear_forms=mat_start, 
+                                                                         num_max_iter=num_max_iter,
+                                                                         lev_print=-1)
         else
             error("Unsupported optimization method for sum of squares certification!")
         end
