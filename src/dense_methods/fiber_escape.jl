@@ -3,7 +3,7 @@
 # function that finds the perturbed linear forms by moving in the fiber
 function find_fiber_perturbation(
         mat_linear_forms::Matrix{Float64},
-        quad_ideal::QuadraticIdeal;
+        list_quad::ListDenseQuadrics;
         val_threshold::Float64 = VAL_TOL
     )
     # check the dimensions
@@ -21,18 +21,18 @@ function find_fiber_perturbation(
         return [(mat_eigenvec[:,1:rank] * LinearAlgebra.diagm(sqrt.(vec_eigenval[1:rank])))'; zeros(num_square-rank,dim)]
     end
     # otherwise we need to move along the fiber to reduce the rank
-    num_gen = length(quad_ideal.mat_gen)
+    num_gen = length(list_quad.mat_gen)
     # form the linear equations for solving the combination coefficients
     mat_ext = Matrix{Float64}(undef, dim*null+1, num_gen)
     for i=1:null, j=1:num_gen
-        mat_ext[((i-1)*dim+1):i*dim,j] = quad_ideal.mat_gen[j] * mat_null[:,i]
+        mat_ext[((i-1)*dim+1):i*dim,j] = list_quad.mat_gen[j] * mat_null[:,i]
     end
     # add the normalization equation to avoid trivial solutions (all zero)
     mat_ext[end,:] = ones(num_gen)
     vec_ext = [zeros(dim*null); 1.0]
     # solve for the linear combination coefficients
     vec_combination = mat_ext \ vec_ext
-    mat_fiber_dir = sum(vec_combination[i] .* quad_ideal.mat_gen[i] for i=1:num_gen)
+    mat_fiber_dir = sum(vec_combination[i] .* list_quad.mat_gen[i] for i=1:num_gen)
     # use generalized spectral decomposition to find the stepsize
     vec_genval, mat_genval = LinearAlgebra.eigen(mat_range' * mat_linear_forms' * mat_linear_forms * mat_range, mat_range' * mat_fiber_dir * mat_range)
     _, idx_step = findmin(abs.(vec_genval))
@@ -84,7 +84,7 @@ function solve_gradient_method_with_escapes(
         num_square::Int,
         quad_form::Matrix{Float64},
         map_quotient::AbstractMatrix{Float64},
-        quad_ideal::QuadraticIdeal;
+        list_quad::ListDenseQuadrics;
         mat_linear_forms::Matrix{Float64} = fill(0.0, (0,0)),
         val_threshold::Float64 = VAL_TOL,
         lev_print::Int = 0,
@@ -125,7 +125,7 @@ function solve_gradient_method_with_escapes(
                 println("  Near-zero gradient encountered at the current linear forms ", round.(mat_linear_forms,digits=NUM_DIG))
             end
             # find a perturbation that possibly escapes spurious stationary points
-            mat_linear_forms_temp = find_fiber_perturbation(mat_linear_forms, quad_ideal)
+            mat_linear_forms_temp = find_fiber_perturbation(mat_linear_forms, list_quad)
             if size(mat_linear_forms_temp) != (num_square, dim)
                 if lev_print >= 0
                     println(" Cannot move along the fiber to escape the stationary point!")

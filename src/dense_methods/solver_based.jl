@@ -10,22 +10,22 @@ import SDPA, CSDP   # for solving semidefinite optimization models
 function solve_nonlinear_model(
         num_square::Int,
         quad_form::Matrix{Float64},
-        quad_ideal::QuadraticIdeal;
+        list_quad::ListDenseQuadrics;
         mat_linear_forms::Matrix{Float64} = zeros(0)
     )
     # check the input dimensions
-    dim = quad_ideal.dim
+    dim = list_quad.dim
     if size(quad_form) != (dim,dim)
         error("The dimensions of the linear forms do not match!")
     end
     # get the number of quadratic form generators of the ideal
-    num_gen = length(quad_ideal.mat_gen)
+    num_gen = length(list_quad.mat_gen)
     # define the optimization model
     model = JuMP.Model()
     var_linear_forms = JuMP.@variable(model, [1:num_square, 1:dim], base_name="l")
     var_combination = JuMP.@variable(model, [1:num_gen], base_name="a")
     expr_Gram_matrix = JuMP.@expression(model, var_linear_forms' * var_linear_forms)
-    expr_difference = JuMP.@expression(model, expr_Gram_matrix + sum(var_combination[i] .* quad_ideal.mat_gen[i] for i=1:num_gen) - quad_form)
+    expr_difference = JuMP.@expression(model, expr_Gram_matrix + sum(var_combination[i] .* list_quad.mat_gen[i] for i=1:num_gen) - quad_form)
     JuMP.@NLobjective(model, Min, sum(2*expr_difference[i,j]^2 for i=1:dim,j=1:dim if i<j) + sum(expr_difference[i,i]^2 for i=1:dim))
     # set the starting points if supplied, or otherwise randomly choose one
     if size(mat_linear_forms) != (num_square, dim)
@@ -61,17 +61,17 @@ end
 function solve_restricted_nonlinear_model(
         num_square::Int,
         quad_form::Matrix{Float64},
-        quad_ideal::QuadraticIdeal;
+        list_quad::ListDenseQuadrics;
         val_tol::Float64 = 1.0e-2,
         mat_linear_forms::Matrix{Float64} = zeros(0)
     )
     # check the input dimensions
-    dim = quad_ideal.dim
+    dim = list_quad.dim
     if size(quad_form) != (dim,dim)
         error("The dimensions of the linear forms do not match!")
     end
     # get the number of quadratic form generators of the ideal
-    num_gen = length(quad_ideal.mat_gen)
+    num_gen = length(list_quad.mat_gen)
     # generate a starting point randomly if not supplied
     if size(mat_linear_forms) != (num_square, dim)
         mat_linear_forms = randn(num_square, dim)
@@ -83,7 +83,7 @@ function solve_restricted_nonlinear_model(
     var_combination = JuMP.@variable(model, [1:num_gen], base_name="a")
     var_restriction = JuMP.@variable(model, base_name="b")
     expr_Gram_matrix = JuMP.@expression(model, var_linear_forms' * var_linear_forms)
-    expr_difference = JuMP.@expression(model, expr_Gram_matrix + sum(var_combination[i] .* quad_ideal.mat_gen[i] for i=1:num_gen) - quad_form)
+    expr_difference = JuMP.@expression(model, expr_Gram_matrix + sum(var_combination[i] .* list_quad.mat_gen[i] for i=1:num_gen) - quad_form)
     expr_excursion = JuMP.@expression(model, expr_difference - var_restriction .* (mat_initial_Gram - quad_form))
     JuMP.@NLconstraint(model, sum(2*expr_excursion[i,j]^2 for i=1:dim,j=1:dim if i<j) + sum(expr_excursion[i,i]^2 for i=1:dim) <= val_tol)
     JuMP.@NLobjective(model, Min, sum(2*expr_difference[i,j]^2 for i=1:dim,j=1:dim if i<j) + sum(expr_difference[i,i]^2 for i=1:dim))
@@ -120,17 +120,17 @@ end
 function solve_penalized_nonlinear_model(
         num_square::Int,
         quad_form::Matrix{Float64},
-        quad_ideal::QuadraticIdeal;
+        list_quad::ListDenseQuadrics;
         val_pen::Float64 = 1.0e4,
         mat_linear_forms::Matrix{Float64} = zeros(0)
     )
     # check the input dimensions
-    dim = quad_ideal.dim
+    dim = list_quad.dim
     if size(quad_form) != (dim,dim)
         error("The dimensions of the linear forms do not match!")
     end
     # get the number of quadratic form generators of the ideal
-    num_gen = length(quad_ideal.mat_gen)
+    num_gen = length(list_quad.mat_gen)
     # generate a starting point randomly
     if size(mat_linear_forms) != (num_square, dim)
         mat_linear_forms = randn(num_square, dim)
@@ -142,7 +142,7 @@ function solve_penalized_nonlinear_model(
     var_combination = JuMP.@variable(model, [1:num_gen], base_name="a")
     var_restriction = JuMP.@variable(model, base_name="b")
     expr_Gram_matrix = JuMP.@expression(model, var_linear_forms' * var_linear_forms)
-    expr_difference = JuMP.@expression(model, expr_Gram_matrix + sum(var_combination[i] .* quad_ideal.mat_gen[i] for i=1:num_gen) - quad_form)
+    expr_difference = JuMP.@expression(model, expr_Gram_matrix + sum(var_combination[i] .* list_quad.mat_gen[i] for i=1:num_gen) - quad_form)
     expr_excursion = JuMP.@expression(model, expr_difference - var_restriction .* (mat_initial_Gram - quad_form))
     JuMP.@NLobjective(model, Min, sum(2*(expr_difference[i,j]^2 + expr_excursion[i,j]^2) for i=1:dim,j=1:dim if i<j) + sum(expr_difference[i,i]^2 + expr_excursion[i,i]^2 for i=1:dim))
     # set the starting point
@@ -174,21 +174,21 @@ end
 # semidefinite optimization (feasibility) model for (full-rank) certification
 function solve_semidefinite_model(
         quad_form::Matrix{Float64},
-        quad_ideal::QuadraticIdeal
+        list_quad::ListDenseQuadrics
     )
     # check the input dimensions
-    dim = quad_ideal.dim
+    dim = list_quad.dim
     if size(quad_form) != (dim,dim)
         error("The dimensions of the linear forms do not match!")
     end
     # get the number of quadratic form generators of the ideal
-    num_gen = length(quad_ideal.mat_gen)
+    num_gen = length(list_quad.mat_gen)
     # define the optimization model
     model = JuMP.Model()
     var_Gram_matrix = JuMP.@variable(model, [1:dim, 1:dim], PSD, base_name="G")
     var_combination = JuMP.@variable(model, [1:num_gen], base_name="a")
     var_objective = JuMP.@variable(model, base_name="t")
-    expr_difference = var_Gram_matrix + sum(var_combination[i] .* quad_ideal.mat_gen[i] for i in 1:num_gen) - quad_form
+    expr_difference = var_Gram_matrix + sum(var_combination[i] .* list_quad.mat_gen[i] for i in 1:num_gen) - quad_form
     # JuMP.@constraint(model, [vec(expr_difference); var_objective] in JuMP.SecondOrderCone())
     # JuMP.@objective(model, Min, var_objective)
     JuMP.@constraint(model, expr_difference .== 0)
