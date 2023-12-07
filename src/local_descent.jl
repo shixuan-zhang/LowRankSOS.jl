@@ -5,8 +5,8 @@
 
 # line search method using backtracking heuristic to reach Armijo-Goldstein condition
 function line_search_backtracking(
-        tuple_linear_forms:Vector{Float64},
-        vec_target_quadric:Vector{Float64},
+        tuple_linear_forms::Vector{Float64},
+        vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2;
         vec_grad::Vector{Float64} = Float64[],
         vec_dir::Vector{Float64}  = -vec_grad,
@@ -66,6 +66,7 @@ function solve_gradient_method(
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
         println("Warning: start the algorithm with a randomly picked point!")
+        tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
     if lev_print >= 0

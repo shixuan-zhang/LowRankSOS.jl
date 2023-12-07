@@ -11,7 +11,7 @@ function get_sym(
         error("Invalid index for the conversion!")
     end
     i, j = min(idx[1],idx[2]), max(idx[1],idx[2])
-    return j*(j-1)/2 + i
+    return Int(j*(j-1)/2 + i)
 end
 
 # function that builds the linear map of the sum-of-square differential 
@@ -41,10 +41,10 @@ function build_diff_map(
                 # check the representation in the quadric basis
                 if m in M
                     # loop over the quadratic monomials to fill in the nonzero entries in the column
-                    for n, r in findnz(R[m])
+                    for n in findnz(coord_ring.prod[m])[1]
                         push!(J, i+k*coord_ring.dim1)
                         push!(I, n)
-                        push!(V, 2*r*tuple_linear_forms[i+k*coord_ring.dim1])
+                        push!(V, 2*coord_ring.prod[m][n]*tuple_linear_forms[i+k*coord_ring.dim1])
                     end
                 end
             end
@@ -77,8 +77,8 @@ function get_sos(
             m = get_sym(i,j)
             if m in M
                 # loop over the quadratic monomials to fill in the nonzero entries in the column
-                for n, r in findnz(R[m])
-                    q[n] += r*G[i,j]*(i==j ? 1 : 2)
+                for n in findnz(R[m])[1]
+                    q[n] += R[m][n]*G[i,j]*(i==j ? 1 : 2)
                 end
             end
         end
