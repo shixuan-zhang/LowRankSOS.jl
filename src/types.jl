@@ -1,7 +1,7 @@
 # types for low-rank sums-of-squares certification
 
 # structure for storing sparse quadratic forms (symmetric matrices)
-struct SparseQuadric
+struct SparseQuadraticForm
     #TODO: complete the struct
 end
 

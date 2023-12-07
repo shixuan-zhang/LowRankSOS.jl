@@ -17,15 +17,73 @@ end
 # function that builds the linear map of the sum-of-square differential 
 # at a given tuple of linear forms (in the form of a sparse matrix)
 function build_diff_map(
-        vec_linear_forms::Vector{Float64},
+        tuple_linear_forms::Vector{Float64},
         coord_ring::CoordinateRing2
     )
     # get the number of squares
-    num_square = length(vec_linear_forms) ÷ coord_ring.dim1
-    if num_square * coord_ring.dim1 != length(vec_linear_forms)
+    num_square, dim_rem = divrem(length(vec_linear_forms), coord_ring.dim1)
+    if dim_rem != 0
         error("Invalid length of the input linear forms!")
     end
-    # TODO: build the differential map (dense or sparse?)
+    # prepare the index and value arrays for the sparse differential matrix
+    I, J = Int[], Int[]
+    V = Float64[]
+    # get the nonzero representations of the quadratic monomials
+    M, R = findnz(coord_ring.prod)
+    # loop over the squares to fill in the differential matrix
+    for k in 1:num_square
+        # loop over the columns
+        for i in 1:coord_ring.dim1
+            # loop over the monomial basis in the linear forms to be multiplied
+            for j in 1:coord_ring.dim1
+                # get the monomial in the quadratic forms
+                m = get_sym(i,j)
+                # check the representation in the quadric basis
+                if m in M
+                    # loop over the quadratic monomials to fill in the nonzero entries in the column
+                    for n, r in findnz(R[m])
+                        push!(J, i+k*coord_ring.dim1)
+                        push!(I, n)
+                        push!(V, 2*r*tuple_linear_forms[i+k*coord_ring.dim1])
+                    end
+                end
+            end
+        end
+    end
+    return sparse(I,J,V,coord_ring.dim2,num_square*coord_ring.dim1)
+end
+
+# function that calculates the sum of squares of the tuple of linear forms
+function get_sos(
+        tuple_linear_forms::Vector{Float64},
+        coord_ring::CoordinateRing2
+    )
+    # get the number of squares
+    num_square, dim_rem = divrem(length(vec_linear_forms), coord_ring.dim1)
+    if dim_rem != 0
+        error("Invalid length of the input linear forms!")
+    end
+    # get the Gram matrix of the linear forms
+    L = reshape(tuple_linear_forms, coord_ring.dim1, num_square)
+    G = L * L'
+    # get the nonzero representations of the quadratic monomials
+    M, R = findnz(coord_ring.prod)
+    # prepare the output quadric vector
+    q = zeros(coord_ring.dim2)
+    # loop over the upper triangular entries to get the quadric (represented in its basis)
+    for i = 1:coord_ring.dim1
+        for j = i:coord_ring.dim1
+            # check the monomial in the quadratic forms
+            m = get_sym(i,j)
+            if m in M
+                # loop over the quadratic monomials to fill in the nonzero entries in the column
+                for n, r in findnz(R[m])
+                    q[n] += r*G[i,j]*(i==j ? 1 : 2)
+                end
+            end
+        end
+    end
+    return q
 end
 
 ## Mathematical and numerical methods
