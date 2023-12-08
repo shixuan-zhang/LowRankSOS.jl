@@ -106,7 +106,7 @@ function solve_gradient_descent(
             break
         end
         # select the stepsize based on the given line search method
-        val_step = 1.0 / sqrt(norm(vec_grad))
+        val_step = 1.0
         vec_dir = -vec_grad
         if str_line_search == "backtracking"
             val_step = line_search_backtracking(tuple_linear_forms,

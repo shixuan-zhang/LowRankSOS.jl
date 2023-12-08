@@ -27,23 +27,22 @@ function build_diff_map(
     # prepare the index and value arrays for the sparse differential matrix
     I, J = Int[], Int[]
     V = T[]
-    # loop over the columns
-    for i in 1:dim_tuple
-        # get the monomial index of the linear form inside the tuple
-        l = (i-1)%coord_ring.dim1+1
-        # loop over the monomial basis in the linear forms to be multiplied
-        for j in 1:coord_ring.dim1
-            # get the monomial in the quadratic forms
-            m = idx_sym(l,j)
+    # loop over each square (in the tuple)
+    for k in 1:num_square
+        # loop over the monomials corresponding to the columns (index j)
+        # and the monomials of the linear forms to be multiplied (index i)
+        for i in 1:coord_ring.dim1, j in 1:coord_ring.dim1
+            # get the symmetric index of the Gram matrix
+            m = idx_sym(i,j)
             # loop over the quadratic monomials to fill in the nonzero entries in the column
             for n in findnz(coord_ring.prod[m])[1]
-                push!(J, i)
                 push!(I, n)
-                push!(V, 2*coord_ring.prod[m][n]*tuple_linear_forms[i])
+                push!(J, j+(k-1)*coord_ring.dim1)
+                push!(V, 2*coord_ring.prod[m][n]*tuple_linear_forms[i+(k-1)*coord_ring.dim1])
             end
         end
     end
-    return sparse(I,J,V,coord_ring.dim2,num_square*coord_ring.dim1)
+    return sparse(I,J,V,coord_ring.dim2,dim_tuple)
 end
 
 # function that calculates the sum of squares of the tuple of linear forms
@@ -60,7 +59,7 @@ function get_sos(
     L = reshape(tuple_linear_forms, coord_ring.dim1, num_square)
     G = L * L'
     # prepare the output quadric vector
-    q = zeros(coord_ring.dim2)
+    q = zeros(T,coord_ring.dim2)
     # loop over the upper triangular entries to get the quadric (represented in its basis)
     for i = 1:coord_ring.dim1
         for j = i:coord_ring.dim1

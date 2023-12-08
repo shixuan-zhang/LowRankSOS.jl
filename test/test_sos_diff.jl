@@ -37,7 +37,7 @@ function customized_diff_map(
                       0,0,L[1+6*i],L[2+6*i],L[3+6*i],
                       0,0,L[4+6*i],L[5+6*i],L[6+6*i]]
     end
-    return M
+    return 2 .* M
 end
 
 # define the sum-of-square distance function
@@ -85,7 +85,14 @@ function test_sos_diff()
              0,1,0,0,0,0,
              0,0,1,0,0,0]
         @test get_sos(L,R2) == customized_sos_map(L)
-        @test build_diff_map(L,R2) == customized_diff_map(L)
+        @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
+    end
+    # test at the forms (x⋅s²+y⋅t², x⋅t²-y⋅s², √2(x⋅s⋅t+y⋅s⋅t))
+    let L = [1,0,0,0,0,1,
+             0,0,1,-1,0,0,
+             0,√2,0,0,√2,0]
+        @test get_sos(L,R2) == customized_sos_map(L)
+        @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
     end
 end
 
