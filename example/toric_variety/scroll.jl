@@ -16,9 +16,9 @@ function test_scroll(
     num_square = dim+1
     # choose randomly a target
     tuple_random = rand(num_square*coord_ring.dim1)
-    target_sos = LowRankSOS.get_sos(tuple_random, coord_ring)
+    target_sos = get_sos(tuple_random, coord_ring)
     # run the local descent method
-    LowRankSOS.solve_gradient_method(num_square, target_sos, coord_ring, print=true, num_max_iter=50)
+    solve_gradient_descent(num_square, target_sos, coord_ring, print=true, num_max_iter=100)
 end
 
 test_scroll([3,4,5,6,7])

@@ -6,6 +6,11 @@ using LinearAlgebra, SparseArrays
 # import modules for auxiliary functions
 using Formatting
 
+# export types and methods for application programming interface
+export CoordinateRing2
+export idx_sym, build_diff_map, get_sos
+export solve_gradient_descent
+
 # define the option of enabling dense methods
 const DENSE_METHODS = false
 

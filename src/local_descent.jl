@@ -59,7 +59,7 @@ function line_search_backtracking(
 end
 
 # gradient descent method for low-rank certification
-function solve_gradient_method(
+function solve_gradient_descent(
         num_square::Int,
         vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2;

@@ -14,9 +14,9 @@ end
 # function that builds the linear map of the sum-of-square differential 
 # at a given tuple of linear forms (in the form of a sparse matrix)
 function build_diff_map(
-        tuple_linear_forms::Vector{Float64},
+        tuple_linear_forms::Vector{T},
         coord_ring::CoordinateRing2
-    )
+    ) where T <: Real
     # get the dimension of the tuple
     dim_tuple = length(tuple_linear_forms)
     # get the number of squares
@@ -26,7 +26,7 @@ function build_diff_map(
     end
     # prepare the index and value arrays for the sparse differential matrix
     I, J = Int[], Int[]
-    V = Float64[]
+    V = T[]
     # loop over the columns
     for i in 1:dim_tuple
         # get the monomial index of the linear form inside the tuple
@@ -48,9 +48,9 @@ end
 
 # function that calculates the sum of squares of the tuple of linear forms
 function get_sos(
-        tuple_linear_forms::Vector{Float64},
+        tuple_linear_forms::Vector{T},
         coord_ring::CoordinateRing2
-    )
+    ) where T <: Real
     # get the number of squares
     num_square, dim_rem = divrem(length(tuple_linear_forms), coord_ring.dim1)
     if dim_rem != 0
