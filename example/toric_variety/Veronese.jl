@@ -13,9 +13,10 @@ function test_Veronese(
     num_square = ceil(Int, sqrt(2*binomial(deg+dim,deg)))
     # choose randomly a target
     tuple_random = rand(num_square*coord_ring.dim1)
-    target_sos = get_sos(tuple_random, coord_ring)
+    target_sos = LowRankSOS.get_sos(tuple_random, coord_ring)
     # run the local descent method
-    solve_gradient_method(num_square, target_sos, coord_ring)
+    LowRankSOS.solve_gradient_method(num_square, target_sos, coord_ring, print=true)
 end
 
+# execute the test
 test_Veronese(2,10)

@@ -12,6 +12,6 @@ struct CoordinateRing2
     # dimension of the linear forms R₂ as a real vector space
     dim2::Int 
     # representations of products of linear forms by the quadric basis
-    prod::SparseVector{SparseVector{Rational{Int},Int},Int}
+    prod::Vector{SparseVector{Rational{Int},Int}}
 end
 

@@ -15,7 +15,7 @@ function build_ring_from_polytope(
     b1 = Matrix{Int}(p.LATTICE_POINTS_GENERATORS[1][:,2:end])
     dim1, _ = size(b1)
     # get the polytope of the degree-2 part
-    q = polytope.Polytope(POINTS=hcat(ones(Int,num_vertex),2*mat_vertices)) # polytope.minkowski_sum(p,p)
+    q = polytope.Polytope(POINTS=hcat(ones(Int,num_vertex),2*mat_vertices)) 
     # get the basis of the quadrics (each row is an index for a monomial)
     b2 = Matrix{Int}(q.LATTICE_POINTS_GENERATORS[1][:,2:end])
     dim2, _ = size(b2)
@@ -28,7 +28,7 @@ function build_ring_from_polytope(
         for j in i:dim1
             v =  b1[i,:]+b1[j,:]
             n = m2[v]
-            prod[LowRankSOS.get_sym(dim1,(i,j))] = sparsevec([n],[1],dim2)
+            prod[LowRankSOS.idx_sym(i,j)] = sparsevec([n],[1],dim2)
         end
     end
     return LowRankSOS.CoordinateRing2(dim1,dim2,prod)

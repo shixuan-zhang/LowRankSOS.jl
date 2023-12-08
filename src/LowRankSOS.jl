@@ -3,6 +3,8 @@ module LowRankSOS
 
 # import modules for math operations and computations
 using LinearAlgebra, SparseArrays
+# import modules for auxiliary functions
+using Formatting
 
 # define the option of enabling dense methods
 const DENSE_METHODS = false

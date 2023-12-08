@@ -10,11 +10,11 @@ function line_search_backtracking(
         coord_ring::CoordinateRing2;
         vec_grad::Vector{Float64} = Float64[],
         vec_dir::Vector{Float64}  = -vec_grad,
-        val_control::Float64      = 0.5,
-        val_reduction::Float64    = 0.5,
+        val_control::Float64      = 0.01,
+        val_reduction::Float64    = 0.8,
         val_init_step::Float64    = 1.0,
         val_min_step::Float64     = VAL_TOL,
-        lev_print::Int            = -1
+        print::Bool               = false
     )
     # get the current sos vector
     vec_sos = get_sos(tuple_linear_forms, coord_ring)
@@ -31,6 +31,7 @@ function line_search_backtracking(
     # initialize the iteration info
     idx_iter = 0
     val_step = val_init_step
+    str_step = ""
     # start the main loop
     while true
         # calculate the objective value at the tentative point
@@ -42,9 +43,14 @@ function line_search_backtracking(
         else
             val_step *= val_reduction
         end
+        if print
+            str_step *= format("DEBUG: the tentative step = {:<5.3e}, the candidate obj = {:<10.6e}\n",
+                               val_step, val_obj_temp)
+        end
         if val_step < val_min_step
-            if lev_print >= 0
+            if print
                 println("DEBUG: step size given by backtracking line search is too small!")
+                println("DEBUG: the backtracking history is displayed below.\n", str_step)
             end
             return val_step
         end
@@ -57,11 +63,11 @@ function solve_gradient_method(
         num_square::Int,
         vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2;
-        tuple_linear_forms::Vector{Float64} = fill(0.0, (0,0)),
+        tuple_linear_forms::Vector{Float64} = Float64[],
         num_max_iter::Int = NUM_MAX_ITER,
         val_threshold::Float64 = VAL_TOL,
-        lev_print::Int = 0,
-        str_line_search::String = "none"
+        print::Bool = false,
+        str_line_search::String = "backtracking"
     )
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
@@ -69,7 +75,7 @@ function solve_gradient_method(
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
-    if lev_print >= 0
+    if print
         println("\n=============================================================================")
     end
     idx_iter = 0
@@ -84,41 +90,46 @@ function solve_gradient_method(
     norm_init_grad = norm(vec_init_grad)
     val_rescale = min(1.0, (norm_init / norm_init_grad))
     # set the termination threshold based on the initial norm
-    val_term = max(val_threshold * sqrt(num_square * dim), val_threshold * norm_init)
+    val_term = max(val_threshold * sqrt(num_square * coord_ring.dim1), val_threshold * norm_init)
     # start the main loop
     while idx_iter <= num_max_iter
         # get the current sos
-        vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
+        vec_sos = get_sos(tuple_linear_forms,coord_ring)
         # get gradient vector
         vec_grad = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_sos-vec_target_quadric)
         if any(isnan.(vec_grad))
             error("ERROR: the gradient contains NaN!")
         end
         # check if the gradient is sufficiently small
-        if norm(mat_grad) < val_term 
+        if norm(vec_grad) < val_term 
             flag_converge = true
             break
         end
         # select the stepsize based on the given line search method
-        val_step = norm(vec_grad)
-        vec_dir = -vec_grad ./ val_step
-        val_step = line_search_backtracking(tuple_linear_forms,
-                                            vec_target_quadric, 
-                                            coord_ring, 
-                                            vec_grad=vec_grad,
-                                            vec_dir =-vec_grad,
-                                            val_init_step=val_step)
+        val_step = 1.0 / sqrt(norm(vec_grad))
+        vec_dir = -vec_grad
+        if str_line_search == "backtracking"
+            val_step = line_search_backtracking(tuple_linear_forms,
+                                                vec_target_quadric, 
+                                                coord_ring, 
+                                                vec_grad=vec_grad,
+                                                vec_dir =vec_dir,
+                                                val_init_step=val_step,
+                                                print=print)
+        else
+            error("ERROR: unsupported line search method!")
+        end
         # print the algorithm progress
-        if lev_print >= 1
-            println("  Iteration ", idx_iter, ": objective value = ", norm(vec_sos-vec_target_quadric,2)^2, 
-                    ", new step size = ", val_step)
+        if print
+            printfmtln("  Iter {:<4d}: obj = {:<10.6e}, step = {:<10.4e}, grad norm = {:<10.4e}", 
+                       idx_iter, norm(vec_sos-vec_target_quadric,2)^2, val_step, norm(vec_grad))
         end
         # update the current linear forms
         tuple_linear_forms += val_step .* vec_dir
         idx_iter += 1
     end
     # print the number of iterations and total time
-    if lev_print >= 0
+    if print
         if flag_converge
             println("The gradient descent method with ", str_line_search, " line search has converged within ", idx_iter, " iterations!")
         else

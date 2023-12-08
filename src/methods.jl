@@ -3,14 +3,11 @@
 # function that converts a pair of indices of two vectors into the
 # index of upper triangular entries of a symmetric matrix in the column (grevlex) order
 # for example: (1,1),(1,2)=(2,1),(2,2),(1,3)=(3,1),(2,3)=(3,2),(3,3),…
-function get_sym(
-        dim::Int,
-        idx::Tuple{Int,Int}
+function idx_sym(
+        idx1::Int,
+        idx2::Int
     )
-    if idx[1] < 1 || idx[1] > dim || idx[2] < 1 || idx[2] > dim
-        error("Invalid index for the conversion!")
-    end
-    i, j = min(idx[1],idx[2]), max(idx[1],idx[2])
+    i, j = min(idx1,idx2), max(idx1,idx2)
     return Int(j*(j-1)/2 + i)
 end
 
@@ -20,33 +17,29 @@ function build_diff_map(
         tuple_linear_forms::Vector{Float64},
         coord_ring::CoordinateRing2
     )
+    # get the dimension of the tuple
+    dim_tuple = length(tuple_linear_forms)
     # get the number of squares
-    num_square, dim_rem = divrem(length(vec_linear_forms), coord_ring.dim1)
-    if dim_rem != 0
+    num_square = dim_tuple ÷ coord_ring.dim1
+    if num_square * coord_ring.dim1 != dim_tuple
         error("Invalid length of the input linear forms!")
     end
     # prepare the index and value arrays for the sparse differential matrix
     I, J = Int[], Int[]
     V = Float64[]
-    # get the nonzero representations of the quadratic monomials
-    M, R = findnz(coord_ring.prod)
-    # loop over the squares to fill in the differential matrix
-    for k in 1:num_square
-        # loop over the columns
-        for i in 1:coord_ring.dim1
-            # loop over the monomial basis in the linear forms to be multiplied
-            for j in 1:coord_ring.dim1
-                # get the monomial in the quadratic forms
-                m = get_sym(i,j)
-                # check the representation in the quadric basis
-                if m in M
-                    # loop over the quadratic monomials to fill in the nonzero entries in the column
-                    for n in findnz(coord_ring.prod[m])[1]
-                        push!(J, i+k*coord_ring.dim1)
-                        push!(I, n)
-                        push!(V, 2*coord_ring.prod[m][n]*tuple_linear_forms[i+k*coord_ring.dim1])
-                    end
-                end
+    # loop over the columns
+    for i in 1:dim_tuple
+        # get the monomial index of the linear form inside the tuple
+        l = (i-1)%coord_ring.dim1+1
+        # loop over the monomial basis in the linear forms to be multiplied
+        for j in 1:coord_ring.dim1
+            # get the monomial in the quadratic forms
+            m = idx_sym(l,j)
+            # loop over the quadratic monomials to fill in the nonzero entries in the column
+            for n in findnz(coord_ring.prod[m])[1]
+                push!(J, i)
+                push!(I, n)
+                push!(V, 2*coord_ring.prod[m][n]*tuple_linear_forms[i])
             end
         end
     end
@@ -59,27 +52,23 @@ function get_sos(
         coord_ring::CoordinateRing2
     )
     # get the number of squares
-    num_square, dim_rem = divrem(length(vec_linear_forms), coord_ring.dim1)
+    num_square, dim_rem = divrem(length(tuple_linear_forms), coord_ring.dim1)
     if dim_rem != 0
         error("Invalid length of the input linear forms!")
     end
     # get the Gram matrix of the linear forms
     L = reshape(tuple_linear_forms, coord_ring.dim1, num_square)
     G = L * L'
-    # get the nonzero representations of the quadratic monomials
-    M, R = findnz(coord_ring.prod)
     # prepare the output quadric vector
     q = zeros(coord_ring.dim2)
     # loop over the upper triangular entries to get the quadric (represented in its basis)
     for i = 1:coord_ring.dim1
         for j = i:coord_ring.dim1
             # check the monomial in the quadratic forms
-            m = get_sym(i,j)
-            if m in M
-                # loop over the quadratic monomials to fill in the nonzero entries in the column
-                for n in findnz(R[m])[1]
-                    q[n] += R[m][n]*G[i,j]*(i==j ? 1 : 2)
-                end
+            m = idx_sym(i,j)
+            # loop over the quadratic monomials to fill in the nonzero entries in the column
+            for n in findnz(coord_ring.prod[m])[1]
+                q[n] += coord_ring.prod[m][n]*G[i,j]*(i==j ? 1 : 2)
             end
         end
     end
@@ -87,7 +76,6 @@ function get_sos(
 end
 
 ## Mathematical and numerical methods
-
 # function that calculates the real roots of a cubic function explicitly
 # see details here: https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula
 function find_cubic_roots(
