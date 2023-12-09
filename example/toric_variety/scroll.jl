@@ -18,7 +18,8 @@ function test_scroll(
     tuple_random = rand(num_square*coord_ring.dim1)
     target_sos = get_sos(tuple_random, coord_ring)
     # run the local descent method
-    solve_gradient_descent(num_square, target_sos, coord_ring, print=true, num_max_iter=2000)
+    # solve_gradient_descent(num_square, target_sos, coord_ring, print=true, num_max_iter=5000)
+    solve_limited_memory_descent(num_square, target_sos, coord_ring, print=true, num_max_iter=5000)
 end
 
-test_scroll([3,4,5,6,7])
+test_scroll([3,4,5,6])

@@ -15,8 +15,8 @@ function test_Veronese(
     tuple_random = rand(num_square*coord_ring.dim1)
     target_sos = get_sos(tuple_random, coord_ring)
     # run the local descent method
-    solve_gradient_descent(num_square, target_sos, coord_ring, print=true)
+    solve_gradient_descent(num_square, target_sos, coord_ring, print=true, num_max_iter=5000)
 end
 
 # execute the test
-test_Veronese(2,10)
+test_Veronese(2,20)
