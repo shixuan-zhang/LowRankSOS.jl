@@ -19,4 +19,4 @@ function test_Veronese(
 end
 
 # execute the test
-test_Veronese(2,20)
+test_Veronese(2,8)

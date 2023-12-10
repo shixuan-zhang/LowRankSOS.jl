@@ -74,7 +74,7 @@ function get_sos(
     return q
 end
 
-## Mathematical and numerical methods
+## Mathematical methods
 # function that calculates the real roots of a cubic function explicitly
 # see details here: https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula
 function find_cubic_roots(
@@ -82,14 +82,14 @@ function find_cubic_roots(
         val_tol::Float64 = 1.0e-8
     )
     # check the number of coefficients of the cubic equation
-    if length(vec_coefficients) != 4 || vec_coefficients[1] == 0
+    if length(vec_coefficients) != 4 || vec_coefficients[4] == 0
         error("Invalid input for the cubic equation!")
     end
     # alias the coefficient vector and calculate the modified resultants (Δ1 and Δ2)
-    a = vec_coefficients[1]
-    b = vec_coefficients[2]
-    c = vec_coefficients[3]
-    d = vec_coefficients[4]
+    a = vec_coefficients[4]
+    b = vec_coefficients[3]
+    c = vec_coefficients[2]
+    d = vec_coefficients[1]
     Δ0 = b^2 - 3*a*c
     Δ1 = 2*b^3 - 9*a*b*c + 27*a^2*d
     # check if the resultants are zero which implies there is only one real root
@@ -105,12 +105,33 @@ function find_cubic_roots(
 end
 
 # function that interpolates a univariate quartic polynomial passing through 0 at 0,
+# i.e., f(x)=a₄x⁴+a₃x³+a₂x²+a₁x, using function values at four given points
+function interpolate_quartic_polynomial(
+        vec_points::Vector{T},
+        vec_values::Vector{T}
+    ) where T <: Real
+    # check the input lengths
+    if  length(vec_points) != 4 ||
+        length(vec_values) != 4 
+        error("Invalid input for quartic polynomial interpolation!")
+    end
+    # form the coefficient matrix 
+    C = zeros(4,4)
+    for i = 1:4
+        C[i,:] = vec_points[i].^[1,2,3,4]
+    end
+    v = vec_values
+    # solve for the coefficients
+    return C \ v
+end
+
+# function that interpolates a univariate quartic polynomial passing through 0 at 0,
 # i.e., f(x)=a₄x⁴+a₃x³+a₂x²+a₁x, using function values and derivatives at two given points
 function interpolate_quartic_polynomial(
-        vec_points::Vector{Float64},
-        vec_values::Vector{Float64},
-        vec_slopes::Vector{Float64}
-    )
+        vec_points::Vector{T},
+        vec_values::Vector{T},
+        vec_slopes::Vector{T}
+    ) where T <: Real
     # check the input lengths
     if  length(vec_points) != 2 ||
         length(vec_values) != 2 ||
@@ -120,51 +141,15 @@ function interpolate_quartic_polynomial(
     # form the coefficient matrix with rows 1 and 2 given by function values
     C = zeros(4,4)
     v = zeros(4)
-    C[1,:] = vec_points[1].^[4, 3, 2, 1]
-    C[2,:] = vec_points[2].^[4, 3, 2, 1]
+    C[1,:] = vec_points[1].^[1,2,3,4]
+    C[2,:] = vec_points[2].^[1,2,3,4]
     v[1:2] = vec_values
     # and rows 3 and 4 given by function derivatives
-    C[3,:] = vec_points[1].^[3, 2, 1, 0] .* [4, 3, 2, 1]
-    C[4,:] = vec_points[2].^[3, 2, 1, 0] .* [4, 3, 2, 1]
+    C[3,:] = vec_points[1].^[0,1,2,3] .* [1,2,3,4]
+    C[4,:] = vec_points[2].^[0,1,2,3] .* [1,2,3,4]
     v[3:4] = vec_slopes
     # solve for the coefficients
     return C \ v
 end
 
 
-# function that finds a descent direction through limited memory of previous iterations
-# the implementation is the ``two-loop L-BFGS method'' 
-# (Algorithm 7.4 in Numerical Optimization, Nocedal and Wright 2006, pp.178)
-function find_descent_direction_limited_memory(
-        vec_gradient::Vector{Float64},
-        vec_updates_point::Vector{Vector{Float64}},
-        vec_updates_gradient::Vector{Vector{Float64}}
-    )
-    # check the size of the update histories
-    n = min(length(vec_updates_point), length(vec_updates_gradient))
-    if length(vec_updates_point) != length(vec_updates_gradient)
-        println("Warning: mismatch in the sizes of iteration histories!")
-    end
-    if n <= 0
-        return -vec_gradient
-    end
-    # initialize the temporary gradient vector
-    q = vec_gradient
-    α = zeros(n)
-    ρ = zeros(n)
-    # start the first for-loop
-    for i in n:-1:1
-        ρ[i] = inv(vec_updates_gradient[i]' * vec_updates_point[i])
-        α[i] = vec_updates_point[i]'*q * ρ[i]
-        q -= α[i].*vec_updates_gradient[i]
-    end
-    # conduct an initial approximation of the direction
-    r = (vec_updates_point[n]' * vec_updates_gradient[n]) /
-        (vec_updates_gradient[n]' * vec_updates_gradient[n]) .* q
-    # start the second for-loop
-    for i in 1:n
-        β = ρ[i] * (vec_updates_gradient[i]' * r)
-        r += vec_updates_point[i] .* (α[i]-β)
-    end
-    return -r
-end

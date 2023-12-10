@@ -3,7 +3,7 @@
 include("../src/LowRankSOS.jl")
 using .LowRankSOS
 
-using LinearAlgebra, SparseArrays, Test
+using LinearAlgebra, SparseArrays, ForwardDiff, Test
 
 ## test the sos map and its differential (Jacobian matrix) using a (2,2)-scroll
 # linear forms on the two-dimensional scroll correspond to bihomogeneous polynomials in x,y,s,t
@@ -86,6 +86,7 @@ function test_sos_diff()
              0,0,1,0,0,0]
         @test get_sos(L,R2) == customized_sos_map(L)
         @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
+        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_diff_map(L,R2))
     end
     # test at the forms (x⋅s²+y⋅t², x⋅t²-y⋅s², √2(x⋅s⋅t+y⋅s⋅t))
     let L = [1,0,0,0,0,1,
@@ -93,6 +94,15 @@ function test_sos_diff()
              0,√2,0,0,√2,0]
         @test get_sos(L,R2) == customized_sos_map(L)
         @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
+        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_diff_map(L,R2))
+    end
+    # test at a dense tuple of linear forms
+    let L = [1,2,3,4,5,6,
+             6,5,4,3,2,1,
+             1,1,1,1,1,1]
+        @test get_sos(L,R2) == customized_sos_map(L)
+        @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
+        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_diff_map(L,R2))
     end
 end
 
