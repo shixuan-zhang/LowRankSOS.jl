@@ -10,6 +10,7 @@ using Formatting
 export CoordinateRing2
 export idx_sym, build_diff_map, get_sos
 export solve_gradient_descent, solve_BFGS_descent, solve_lBFGS_descent
+export call_NLopt
 
 # define the option of enabling dense methods
 const DENSE_METHODS = false
@@ -24,7 +25,8 @@ const NUM_MEM_SIZE = 20
 # include the source files of basic types and methods
 include("types.jl")
 include("methods.jl")
-include("local_descent.jl")
+include("line_search.jl") # currently numerically unstable
+include("solver_call.jl")
 
 
 # include optional methods based on dense arrays and matrices

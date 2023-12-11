@@ -132,7 +132,7 @@ function select_step_interpolation(
 end
 
 
-## local information-based descent methods
+## line search-based descent methods
 
 # function that implements a gradient descent method for the low-rank certification
 function solve_gradient_descent(
@@ -147,7 +147,9 @@ function solve_gradient_descent(
     )
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
-        println("Warning: start the gradient descent method with a randomly picked point!")
+        if print
+            println("Warning: start the gradient descent method with a randomly picked point!")
+        end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
@@ -157,6 +159,7 @@ function solve_gradient_descent(
     idx_iter = 0
     flag_converge = false
     time_start = time()
+    val_obj = Inf
     # calculate the initial sos
     vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
     # get gradient vector
@@ -203,13 +206,14 @@ function solve_gradient_descent(
         else
             error("ERROR: unsupported step selection method!")
         end
+        # update the current linear forms and the objective
+        val_obj = norm(vec_sos-vec_target_quadric,2)^2
+        tuple_linear_forms += val_step .* vec_dir
         # print the algorithm progress
         if print
             printfmtln("  Iter {:<4d}: obj = {:<10.6e}, step = {:<10.4e}, grad norm = {:<10.4e}", 
-                       idx_iter, norm(vec_sos-vec_target_quadric,2)^2, val_step, norm(vec_grad))
+                       idx_iter, val_obj , val_step, norm(vec_grad))
         end
-        # update the current linear forms
-        tuple_linear_forms += val_step .* vec_dir
         idx_iter += 1
     end
     # print the number of iterations and total time
@@ -221,7 +225,7 @@ function solve_gradient_descent(
         end
         println("The gradient descent method with ", str_select_step, " step selection uses ", time() - time_start, " seconds.")
     end
-    return tuple_linear_forms
+    return tuple_linear_forms, val_obj
 end
 
 
@@ -240,7 +244,9 @@ function solve_BFGS_descent(
     )
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
-        println("Warning: start the BFGS method with a randomly picked point!")
+        if print
+            println("Warning: start the BFGS method with a randomly picked point!")
+        end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
@@ -250,6 +256,7 @@ function solve_BFGS_descent(
     idx_iter = 0
     flag_converge = false
     time_start = time()
+    val_obj = Inf
     # calculate the initial sos
     vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
     # get gradient vector
@@ -300,9 +307,10 @@ function solve_BFGS_descent(
             error("ERROR: the gradient contains NaN!")
         end
         # print the algorithm progress
+        val_obj = norm(vec_sos_new-vec_target_quadric,2)^2
         if print
             printfmtln("  Iter {:<4d}: obj = {:<10.6e}, step = {:<10.4e}, grad norm = {:<10.4e}", 
-                       idx_iter, norm(vec_sos_new-vec_target_quadric,2)^2, val_step, norm(vec_grad_new))
+                       idx_iter, val_obj, val_step, norm(vec_grad_new))
         end
         # check if the gradient is sufficiently small
         if norm(vec_grad_new) < val_term 
@@ -334,7 +342,7 @@ function solve_BFGS_descent(
         end
         println("The BFGS method with ", str_select_step, " step selection uses ", time() - time_start, " seconds.")
     end
-    return vec_point_new
+    return vec_point_new, val_obj
 end
 
 # function that finds a descent direction through limited memory of previous iterations
@@ -389,7 +397,9 @@ function solve_lBFGS_descent(
     )
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
-        println("Warning: start the l-BFGS method with a randomly picked point!")
+        if print
+            println("Warning: start the l-BFGS method with a randomly picked point!")
+        end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
@@ -399,6 +409,7 @@ function solve_lBFGS_descent(
     idx_iter = 0
     flag_converge = false
     time_start = time()
+    val_obj = Inf
     # calculate the initial sos
     vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
     # get gradient vector
@@ -464,9 +475,10 @@ function solve_lBFGS_descent(
             error("ERROR: the gradient contains NaN!")
         end
         # print the algorithm progress
+        val_obj = norm(vec_sos_new-vec_target_quadric,2)^2
         if print
             printfmtln("  Iter {:<4d}: obj = {:<10.6e}, step = {:<10.4e}, grad norm = {:<10.4e}", 
-                       idx_iter, norm(vec_sos_new-vec_target_quadric,2)^2, val_step, norm(vec_grad_new))
+                       idx_iter, val_obj, val_step, norm(vec_grad_new))
         end
         # check if the gradient is sufficiently small
         if norm(vec_grad_new) < val_term 
@@ -495,7 +507,7 @@ function solve_lBFGS_descent(
         end
         println("The l-BFGS method with ", str_select_step, " step selection uses ", time() - time_start, " seconds.")
     end
-    return vec_point_new
+    return vec_point_new, val_obj
 end
 
 
