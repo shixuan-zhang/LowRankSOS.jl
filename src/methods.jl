@@ -1,4 +1,4 @@
-## Data type conversion methods
+## Data structure construction and conversion methods for the low-rank sos problem
 
 # function that converts a pair of indices of two vectors into the
 # index of upper triangular entries of a symmetric matrix in the column (grevlex) order
@@ -11,9 +11,9 @@ function idx_sym(
     return Int(j*(j-1)/2 + i)
 end
 
-# function that builds the linear map of the sum-of-square differential 
+# function that builds the Jacobian of the sum-of-square differential 
 # at a given tuple of linear forms (in the form of a sparse matrix)
-function build_diff_map(
+function build_Jac_mat(
         tuple_linear_forms::Vector{T},
         coord_ring::CoordinateRing2
     ) where T <: Real
@@ -44,6 +44,8 @@ function build_diff_map(
     end
     return sparse(I,J,V,coord_ring.dim2,dim_tuple)
 end
+# define an alias for the above function
+const build_diff_map = build_Jac_mat
 
 # function that calculates the sum of squares of the tuple of linear forms
 function get_sos(
@@ -61,22 +63,71 @@ function get_sos(
     # prepare the output quadric vector
     q = zeros(T,coord_ring.dim2)
     # loop over the upper triangular entries to get the quadric (represented in its basis)
-    for i = 1:coord_ring.dim1
-        for j = i:coord_ring.dim1
-            # check the monomial in the quadratic forms
-            m = idx_sym(i,j)
-            # loop over the quadratic monomials to fill in the nonzero entries in the column
-            for n in findnz(coord_ring.prod[m])[1]
-                q[n] += coord_ring.prod[m][n]*G[i,j]*(i==j ? 1 : 2)
-            end
+    for i = 1:coord_ring.dim1, j = i:coord_ring.dim1
+        # check the monomial in the quadratic forms
+        m = idx_sym(i,j)
+        # loop over the quadratic monomials to fill in the nonzero entries in the column
+        for n in findnz(coord_ring.prod[m])[1]
+            q[n] += coord_ring.prod[m][n]*G[i,j]*(i==j ? 1 : 2)
         end
     end
     return q
 end
 
-## Mathematical methods
+# function that pulls back a linear functional on the space of quadrics
+# to a bilinear (quadratic) form on the space of linear forms
+function build_bl_form(
+        vec_quadric::Vector{T},
+        coord_ring::CoordinateRing2
+    ) where T <: Real
+    # initialize a matrix for the return
+    M = zeros(T,coord_ring.dim1,coord_ring.dim1)
+    # loop over the upper triangular entries to fill in the bilinear form matrix
+    for i = 1:coord_ring.dim1, j = i:coord_ring.dim1
+        # check the monomial in the quadratic forms
+        m = idx_sym(i,j)
+        # loop over the quadratic monomials to add to this entry
+        for n in findnz(coord_ring.prod[m])[1]
+            M[i,j] += coord_ring.prod[m][n] * vec_quadric[n]
+        end
+    end
+    # return the symmetrized matrix for the bilinear form
+    return (M+M')/2
+end
+
+
+# function that builds the Hessian matrix of the sos objective function
+function build_Hess_mat(
+        num_square::Int,
+        tuple_linear_forms::Vector{T},
+        vec_quadric::Vector{T},
+        coord_ring::CoordinateRing2
+    ) where T <: Real
+    # initialize a matrix for the return
+    d = coord_ring.dim1
+    M = zeros(num_square*coord_ring.dim1,num_square*coord_ring.dim1)
+    # get the bilinear matrix
+    B = build_bl_form(vec_quadric,coord_ring)
+    # fill in the block diagonal entries
+    for k = 1:num_square
+        M[(k-1)*d+1:k*d,(k-1)*d+1:k*d] = B
+    end
+    # get the Jacobian matrix
+    J = build_Jac_mat(tuple_linear_forms,coord_ring)
+    # return the sum
+    return M + J'*J
+end
+
+
+
+
+
+
+
+## General mathematical methods
+
 # function that calculates the real roots of a cubic function explicitly
-# see details here: https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula
+# see (details)[https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula]
 function find_cubic_roots(
         vec_coefficients::Vector{Float64};
         val_tol::Float64 = 1.0e-8
@@ -85,7 +136,7 @@ function find_cubic_roots(
     if length(vec_coefficients) != 4 || vec_coefficients[4] == 0
         error("Invalid input for the cubic equation!")
     end
-    # alias the coefficient vector and calculate the modified resultants (Δ1 and Δ2)
+    # alias the coefficient vector and calculate the modified resultants (Δ₁ and Δ₂)
     a = vec_coefficients[4]
     b = vec_coefficients[3]
     c = vec_coefficients[2]

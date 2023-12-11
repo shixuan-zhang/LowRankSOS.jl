@@ -33,14 +33,22 @@ function experiment_Veronese(
             tuple_random = rand(num_square*coord_ring.dim1)
             target_sos = get_sos(tuple_random, coord_ring)
             # solve the problem and check the optimal value
-            _, val_res = call_NLopt(num_square, target_sos, coord_ring, print=true)
+            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, print=true)
             if val_res < LowRankSOS.VAL_TOL
                 vec_success[idx] = 1
+            else
+                # check the optimality conditions
+                vec_sos = get_sos(vec_sol, coord_ring)
+                mat_Jac = build_Jac_mat(vec_sol, coord_ring)
+                vec_grad = mat_Jac' * (vec_sos-target_sos)
+                mat_Hess = build_Hess_mat(num_square, vec_sol, target_sos, coord_ring)
+                printfmtln("The grad norm = {:<10.4e} and the min eigenval of Hessian = {:<10.4e}",
+                           norm(vec_grad), minimum(eigen(mat_Hess).values))
             end
         end
-        println("\n\nGlobal optima are found in ", sum(vec_success), " out of ", num_rep, " experiment runs")
+        println("\nGlobal optima are found in ", sum(vec_success), " out of ", num_rep, " experiment runs")
     end
 end
 
 # execute the test
-experiment_Veronese(2,10,num_rep=1000)
+experiment_Veronese(2,10,num_rep=100)

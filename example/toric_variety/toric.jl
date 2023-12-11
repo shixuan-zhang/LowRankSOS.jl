@@ -1,4 +1,6 @@
-using Polymake, LinearAlgebra, SparseArrays
+using Polymake 
+using LinearAlgebra, SparseArrays
+using Formatting
 
 include("../../src/LowRankSOS.jl")
 using .LowRankSOS

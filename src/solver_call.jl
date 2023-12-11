@@ -35,9 +35,12 @@ function call_NLopt(
         print::Bool = false
     )
     # generate a starting point randomly if not supplied
+    if print
+        println("\n"*"="^80)
+    end
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
         if print
-            println("Warning: start the gradient descent method with a randomly picked point!")
+            println("Start the NLopt solver with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
@@ -51,9 +54,9 @@ function call_NLopt(
     time_end = time()
     # check the solution summary
     if print
-        println("\n"*"="^80)
         println("The NLopt l-BFGS solver terminates with status: ", status)
-        println("The NLopt returns objective value = ", val_opt, " and uses ", time_end-time_start, " seconds (with ", opt.numevals, " evaluations).")
+        printfmtln("The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
+                val_opt, time_end-time_start, opt.numevals)
     end
     return sol_opt, val_opt
 end

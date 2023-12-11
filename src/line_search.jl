@@ -145,17 +145,17 @@ function solve_gradient_descent(
         print::Bool = false,
         str_select_step::String = "backtracking"
     )
+    if print
+        println("\n" * "="^80)
+    end
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
         if print
-            println("Warning: start the gradient descent method with a randomly picked point!")
+            println("Start the gradient descent method with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
-    if print
-        println("\n" * "="^80)
-    end
     idx_iter = 0
     flag_converge = false
     time_start = time()
@@ -242,17 +242,17 @@ function solve_BFGS_descent(
         print::Bool = false,
         str_select_step::String = "backtracking"
     )
+    if print
+        println("\n" * "="^80)
+    end
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
         if print
-            println("Warning: start the BFGS method with a randomly picked point!")
+            println("Start the BFGS method with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
-    if print
-        println("\n" * "="^80)
-    end
     idx_iter = 0
     flag_converge = false
     time_start = time()
@@ -356,7 +356,7 @@ function find_lBFGS_direction(
     # check the size of the update histories
     n = min(length(vec_update_point), length(vec_update_grad))
     if length(vec_update_point) != length(vec_update_grad)
-        println("Warning: mismatch in the sizes of iteration histories!")
+        println("DEBUG: mismatch in the sizes of iteration histories!")
     end
     if n <= 0
         return -vec_grad
@@ -395,17 +395,17 @@ function solve_lBFGS_descent(
         print::Bool = false,
         str_select_step::String = "backtracking"
     )
+    if print
+        println("\n" * "="^80)
+    end
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
         if print
-            println("Warning: start the l-BFGS method with a randomly picked point!")
+            println("Start the l-BFGS method with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
-    if print >= 0
-        println("\n" * "="^80)
-    end
     idx_iter = 0
     flag_converge = false
     time_start = time()
