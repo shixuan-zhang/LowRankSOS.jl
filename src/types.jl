@@ -1,9 +1,4 @@
-# types for low-rank sums-of-squares certification
-
-# structure for storing sparse quadratic forms (symmetric matrices)
-struct SparseQuadraticForm
-    #TODO: complete the struct
-end
+# data structure types for low-rank sos certification
 
 # structure for quadrics in the coordinate ring
 struct CoordinateRing2
