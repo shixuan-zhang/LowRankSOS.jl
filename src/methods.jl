@@ -81,7 +81,7 @@ function build_bl_form(
         coord_ring::CoordinateRing2
     ) where T <: Real
     # initialize a matrix for the return
-    M = zeros(T,coord_ring.dim1,coord_ring.dim1)
+    M = zeros(coord_ring.dim1,coord_ring.dim1)
     # loop over the upper triangular entries to fill in the bilinear form matrix
     for i = 1:coord_ring.dim1, j = i:coord_ring.dim1
         # check the monomial in the quadratic forms
@@ -89,10 +89,13 @@ function build_bl_form(
         # loop over the quadratic monomials to add to this entry
         for n in findnz(coord_ring.prod[m])[1]
             M[i,j] += coord_ring.prod[m][n] * vec_quadric[n]
+            if i != j
+                M[j,i] += coord_ring.prod[m][n] * vec_quadric[n]
+            end
         end
     end
     # return the symmetrized matrix for the bilinear form
-    return (M+M')/2
+    return M
 end
 
 
@@ -100,22 +103,22 @@ end
 function build_Hess_mat(
         num_square::Int,
         tuple_linear_forms::Vector{T},
-        vec_quadric::Vector{T},
+        vec_quadric::Vector{S},
         coord_ring::CoordinateRing2
-    ) where T <: Real
+    ) where {T <: Real, S <: Real}
     # initialize a matrix for the return
     d = coord_ring.dim1
     M = zeros(num_square*coord_ring.dim1,num_square*coord_ring.dim1)
     # get the bilinear matrix
-    B = build_bl_form(vec_quadric,coord_ring)
+    B = build_bl_form(get_sos(tuple_linear_forms,coord_ring)-vec_quadric,coord_ring)
     # fill in the block diagonal entries
     for k = 1:num_square
         M[(k-1)*d+1:k*d,(k-1)*d+1:k*d] = B
     end
     # get the Jacobian matrix
     J = build_Jac_mat(tuple_linear_forms,coord_ring)
-    # return the sum
-    return M + J'*J
+    # return the sum (and multiplied by 2 by the def of Hessian)
+    return 2*(2*M + J'*J)
 end
 
 

@@ -18,7 +18,7 @@ function obj_NLopt!(
     # check if the gradient information is requested
     if length(grad) > 0
         mat_diff = build_diff_map(point, coord_ring)
-        grad[:] = transpose(mat_diff) * (vec_sos-vec_target_quadric)
+        grad[:] = 2*transpose(mat_diff)*(vec_sos-vec_target_quadric)
     end
     return val_obj
 end

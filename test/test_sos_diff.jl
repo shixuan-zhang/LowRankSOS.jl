@@ -37,10 +37,10 @@ function customized_diff_map(
                       0,0,L[1+6*i],L[2+6*i],L[3+6*i],
                       0,0,L[4+6*i],L[5+6*i],L[6+6*i]]
     end
-    return 2 .* M
+    return 2*M
 end
 
-# define the sum-of-square distance function
+# define the sum-of-square map manually
 function customized_sos_map(
         L::Vector
     )
@@ -61,6 +61,7 @@ function customized_sos_map(
             sum(L[i*6+6]^2 for i=0:2)
            ]
 end
+
 
 # function that tests whether the sos map and its differential are calculated correctly
 function test_sos_diff()
@@ -85,24 +86,64 @@ function test_sos_diff()
              0,1,0,0,0,0,
              0,0,1,0,0,0]
         @test get_sos(L,R2) == customized_sos_map(L)
-        @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
-        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_diff_map(L,R2))
+        @test collect(build_Jac_mat(L,R2)) == customized_diff_map(L)
+        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_Jac_mat(L,R2))
+        # test the differential calculation at a target x²⋅s⁴ + 2x²⋅s²⋅t² + x²⋅t⁴ + y²⋅t⁴
+        let T = [1,0,2,0,1,
+                 0,0,0,0,0,
+                 0,0,0,0,1]
+            customized_obj = (l)->norm(customized_sos_map(l)-T,2)^2
+            # test the gradient
+            @test ForwardDiff.gradient(customized_obj,L) ≈ 2*build_Jac_mat(L,R2)'*(get_sos(L,R2)-T)
+            # test the Hessian
+            @test ForwardDiff.hessian(customized_obj,L) ≈ build_Hess_mat(3,L,T,R2)
+        end
+        # test the differential calculation at a dense quadric target
+        let T = [1,3,2,3,1,
+                 5,4,5,2,1,
+                 4,2,3,3,1]
+            customized_obj = (l)->norm(customized_sos_map(l)-T,2)^2
+            # test the gradient
+            @test ForwardDiff.gradient(customized_obj,L) ≈ 2*build_Jac_mat(L,R2)'*(get_sos(L,R2)-T)
+            # test the Hessian
+            @test ForwardDiff.hessian(customized_obj,L) ≈ build_Hess_mat(3,L,T,R2)
+        end
     end
-    # test at the forms (x⋅s²+y⋅t², x⋅t²-y⋅s², √2(x⋅s⋅t+y⋅s⋅t))
-    let L = [1,0,0,0,0,1,
+    # test at the forms (x⋅s²-y⋅t², x⋅t²-y⋅s², √2(x⋅s⋅t+y⋅s⋅t))
+    let L = [1,0,0,0,0,-1,
              0,0,1,-1,0,0,
              0,√2,0,0,√2,0]
         @test get_sos(L,R2) == customized_sos_map(L)
-        @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
-        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_diff_map(L,R2))
+        @test collect(build_Jac_mat(L,R2)) == customized_diff_map(L)
+        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_Jac_mat(L,R2))
+        # test the differential calculation at a target (x²+y²)(s²+t²)² + x⋅y⋅(s³⋅t+s⋅t³)
+        let T = [1,0,2,0,1,
+                 0,1,0,1,0,
+                 1,0,2,0,1]
+            customized_obj = (l)->norm(customized_sos_map(l)-T,2)^2
+            # test the gradient
+            @test ForwardDiff.gradient(customized_obj,L) ≈ 2*build_Jac_mat(L,R2)'*(get_sos(L,R2)-T)
+            # test the Hessian
+            @test ForwardDiff.hessian(customized_obj,L) ≈ build_Hess_mat(3,L,T,R2)
+        end
+        # test the differential calculation at a dense quadric target
+        let T = [1,3,2,3,1,
+                 5,4,5,2,1,
+                 4,2,3,3,1]
+            customized_obj = (l)->norm(customized_sos_map(l)-T,2)^2
+            # test the gradient
+            @test ForwardDiff.gradient(customized_obj,L) ≈ 2*build_Jac_mat(L,R2)'*(get_sos(L,R2)-T)
+            # test the Hessian
+            @test ForwardDiff.hessian(customized_obj,L) ≈ build_Hess_mat(3,L,T,R2)
+        end
     end
     # test at a dense tuple of linear forms
     let L = [1,2,3,4,5,6,
              6,5,4,3,2,1,
              1,1,1,1,1,1]
         @test get_sos(L,R2) == customized_sos_map(L)
-        @test collect(build_diff_map(L,R2)) == customized_diff_map(L)
-        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_diff_map(L,R2))
+        @test collect(build_Jac_mat(L,R2)) == customized_diff_map(L)
+        @test ForwardDiff.jacobian(customized_sos_map,L) == collect(build_Jac_mat(L,R2))
     end
 end
 

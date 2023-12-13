@@ -51,4 +51,4 @@ function experiment_Veronese(
 end
 
 # execute the test
-experiment_Veronese(2,10,num_rep=1000)
+experiment_Veronese(2,10,num_rep=100)

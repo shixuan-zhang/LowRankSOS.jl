@@ -24,7 +24,7 @@ function select_step_backtracking(
     # get the gradient if not supplied
     if length(vec_grad) != length(tuple_linear_forms)
         mat_diff = build_diff_map(tuple_linear_forms, coord_ring)
-        vec_grad = transpose(mat_diff) * (vec_sos-vec_target_quadric)
+        vec_grad = 2*transpose(mat_diff)*(vec_sos-vec_target_quadric)
         vec_dir = -vec_grad
     end
     # get the slope at the current point
@@ -80,7 +80,7 @@ function select_step_interpolation(
     # calculate the gradient if not supplied
     if length(vec_grad) != length(tuple_linear_forms)
         mat_diff = build_diff_map(tuple_linear_forms, coord_ring)
-        vec_grad = transpose(mat_diff) * (vec_sos-vec_target_quadric)
+        vec_grad = 2*transpose(mat_diff)*(vec_sos-vec_target_quadric)
         vec_dir = -vec_grad
     end
     # get the slope at the current point
@@ -163,7 +163,7 @@ function solve_gradient_descent(
     # calculate the initial sos
     vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
     # get gradient vector
-    vec_init_grad = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_init_sos-vec_target_quadric)
+    vec_init_grad = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_init_sos-vec_target_quadric)
     # use the initial norms as scaling factors
     norm_init = norm(tuple_linear_forms)
     norm_init_grad = norm(vec_init_grad)
@@ -175,7 +175,7 @@ function solve_gradient_descent(
         # get the current sos
         vec_sos = get_sos(tuple_linear_forms,coord_ring)
         # get gradient vector
-        vec_grad = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_sos-vec_target_quadric)
+        vec_grad = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_sos-vec_target_quadric)
         if any(isnan.(vec_grad))
             error("ERROR: the gradient contains NaN!")
         end
@@ -260,7 +260,7 @@ function solve_BFGS_descent(
     # calculate the initial sos
     vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
     # get gradient vector
-    vec_init_grad = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_init_sos-vec_target_quadric)
+    vec_init_grad = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_init_sos-vec_target_quadric)
     # use the initial norms as scaling factors
     norm_init = norm(tuple_linear_forms)
     norm_init_grad = norm(vec_init_grad)
@@ -302,7 +302,7 @@ function solve_BFGS_descent(
         # get the new point and its gradient
         vec_point_new = vec_point_old + val_step * vec_dir
         vec_sos_new = get_sos(vec_point_new,coord_ring)
-        vec_grad_new = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_sos_new-vec_target_quadric)
+        vec_grad_new = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_sos_new-vec_target_quadric)
         if any(isnan.(vec_grad_new))
             error("ERROR: the gradient contains NaN!")
         end
@@ -413,7 +413,7 @@ function solve_lBFGS_descent(
     # calculate the initial sos
     vec_init_sos = get_sos(tuple_linear_forms,coord_ring)
     # get gradient vector
-    vec_init_grad = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_init_sos-vec_target_quadric)
+    vec_init_grad = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_init_sos-vec_target_quadric)
     # use the initial norms as scaling factors
     norm_init = norm(tuple_linear_forms)
     norm_init_grad = norm(vec_init_grad)
@@ -470,7 +470,7 @@ function solve_lBFGS_descent(
         # get the current sos
         vec_sos_new = get_sos(vec_point_new,coord_ring)
         # get gradient vector
-        vec_grad_new = transpose(build_diff_map(tuple_linear_forms,coord_ring)) * (vec_sos_new-vec_target_quadric)
+        vec_grad_new = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_sos_new-vec_target_quadric)
         if any(isnan.(vec_grad_new))
             error("ERROR: the gradient contains NaN!")
         end

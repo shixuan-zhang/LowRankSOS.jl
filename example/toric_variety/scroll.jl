@@ -53,5 +53,5 @@ function experiment_scroll(
     end
 end
 
-experiment_scroll(collect(2:8), num_rep=1000)
+experiment_scroll(collect(2:8), num_rep=100)
 #experiment_scroll([100,200])
