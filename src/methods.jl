@@ -160,7 +160,7 @@ end
 
 # function that interpolates a univariate quartic polynomial passing through 0 at 0,
 # i.e., f(x)=a₄x⁴+a₃x³+a₂x²+a₁x, using function values at four given points
-function interpolate_quartic_polynomial(
+function interpolate_quartic_Vandermonde(
         vec_points::Vector{T},
         vec_values::Vector{T}
     ) where T <: Real
@@ -179,31 +179,30 @@ function interpolate_quartic_polynomial(
     return C \ v
 end
 
-# function that interpolates a univariate quartic polynomial passing through 0 at 0,
-# i.e., f(x)=a₄x⁴+a₃x³+a₂x²+a₁x, using function values and derivatives at two given points
-function interpolate_quartic_polynomial(
-        vec_points::Vector{T},
-        vec_values::Vector{T},
-        vec_slopes::Vector{T}
-    ) where T <: Real
-    # check the input lengths
-    if  length(vec_points) != 2 ||
-        length(vec_values) != 2 ||
-        length(vec_slopes) != 2
+# constants for quartic Chebyshev interpolation nodes on [-1,1]
+const Cheb₁ = cos(pi/10)
+const Cheb₂ = cos(pi*3/10)
+const Chebx = [-Cheb₁, -Cheb₂, 0, Cheb₂, Cheb₁]
+const Chebf = [ChebyshevT(diagm(ones(5))[j,:]) for j=1:5]
+const ChebF = [Chebf[i](Chebx[j]) for i=1:5, j=1:5]
+
+# function that interpolates a general univariate quartic polynomial i.e., 
+# f(x)=a₄x⁴+a₃x³+a₂x²+a₁x+a₀ where x∈[-1,1], using Chebyshev interpolation method
+function interpolate_quartic_Chebyshev(
+        vec_value::Vector{Float64}
+    )
+    # check the input length
+    if length(vec_value) != 5
         error("Invalid input for quartic polynomial interpolation!")
     end
-    # form the coefficient matrix with rows 1 and 2 given by function values
-    C = zeros(4,4)
-    v = zeros(4)
-    C[1,:] = vec_points[1].^[1,2,3,4]
-    C[2,:] = vec_points[2].^[1,2,3,4]
-    v[1:2] = vec_values
-    # and rows 3 and 4 given by function derivatives
-    C[3,:] = vec_points[1].^[0,1,2,3] .* [1,2,3,4]
-    C[4,:] = vec_points[2].^[0,1,2,3] .* [1,2,3,4]
-    v[3:4] = vec_slopes
-    # solve for the coefficients
-    return C \ v
+    # get the Chebyshev coefficient vector
+    vec_Chebc = ChebF * vec_value .* 2/5
+    vec_Chebc[1] /= 2.0
+    # convert the coefficients
+    vec_coeff = Polynomial(ChebyshevT(vec_Chebc)).coeffs
+    if length(vec_coeff) < 5
+        vec_coeff = vcat(vec_coeff,zeros(5-length(vec_coeff)))
+    end
+    return vec_coeff
 end
-
 

@@ -1,0 +1,13 @@
+name = "LowRankSOS"
+uuid = "74cdf5b8-a23a-4514-bd4f-4cbdc1e0bbd3"
+authors = ["Shixuan Zhang <zhangshixuanus@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Formatting = "59287772-0a20-5a39-b81b-1366585eb4c0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NLopt = "76087f3c-5699-56af-9a33-bf431cd00edd"
+Polymake = "d720cf60-89b5-51f5-aff5-213f193123e7"
+Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
+Singular = "bcd08a7b-43d2-5ff7-b6d4-c458787f915c"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"

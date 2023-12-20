@@ -2,7 +2,7 @@
 module LowRankSOS
 
 # import modules for math operations and computations
-using LinearAlgebra, SparseArrays
+using LinearAlgebra, Polynomials, SparseArrays
 # import modules for auxiliary functions
 using Formatting
 
