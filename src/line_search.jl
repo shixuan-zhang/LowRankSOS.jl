@@ -60,17 +60,14 @@ function select_step_backtracking(
 end
 
 # function that uses a quartic interpolation based on finite differences to find a step size
-# which satisfies the curvature (Wolfe but not necessarily sufficient decrease) condition
+# which satisfies the curvature condition (but not necessarily the decrease condition unless with backtracking)
 function select_step_interpolation(
         tuple_linear_forms::Vector{Float64},
         vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2;
         vec_grad::Vector{Float64} = Float64[],
         vec_dir::Vector{Float64}  = -vec_grad,
-        val_reduction::Float64    = 0.5,
-        val_init_step::Float64    = 1.0,
-        val_min_step::Float64     = 1.0e-2,
-        val_max_range::Float64    = 1.0e2,
+        val_threshold::Float64    = 1.0e-4,
         print::Bool               = false
     )
     # get the current sos vector
@@ -83,49 +80,79 @@ function select_step_interpolation(
         vec_grad = 2*transpose(mat_diff)*(vec_sos-vec_target_quadric)
         vec_dir = -vec_grad
     end
-    # get the slope at the current point
+    # get the slope at the current point (rescaled to the interval [-1,1])
     val_slope = vec_grad' * vec_dir
     # set the objective value evaluation function
-    func_obj = (s) -> norm(get_sos(tuple_linear_forms+s.*vec_dir,coord_ring)-vec_target_quadric,2)^2
-    # sample two points for interpolation
-    val_sample_step = val_init_step
-    # reduce the sample step in case that the function value goes beyond the prescribed range
-    while func_obj(tuple_linear_forms+val_sample_step.*vec_dir) > val_max_range * val_obj ||
-          func_obj(tuple_linear_forms-val_sample_step.*vec_dir) > val_max_range * val_obj 
-        val_sample_step *= val_reduction
-        if val_sample_step < val_min_step
-            println("DEBUG: the interpolation step is ", val_sample_step)
-            break
-        end
-    end
-    vec_points = val_sample_step .* [-1, -1/3, 1/3, 1]
-    vec_values = func_obj.(vec_points) .- val_obj
+    func_obj = (s) -> norm(get_sos(tuple_linear_forms+s*vec_dir,coord_ring)-vec_target_quadric,2)^2
+    # do the Chebyshev interpolation on the prescribed interval
+    vec_value = func_obj.(Chebx)
     # interpolate the quartic polynomial
-    vec_coeff = interpolate_quartic_polynomial(vec_points, vec_values)
-    # check if the interpolation is numerically accurate
-    if vec_coeff[4] < VAL_TOL || 
-        abs(val_slope - vec_coeff[1])/max(abs(val_slope),abs(vec_coeff[1])) > VAL_TOL
+    vec_coeff = interpolate_quartic_Chebyshev(vec_value)
+    # check if the interpolation has a significant quartic term
+    if vec_coeff[end] < -VAL_TOL
+        error("ERROR: the quartic interpolation returns negative quartic term!")
+    elseif vec_coeff[end] < val_threshold * (1.0+sum(abs.(vec_coeff[1:3])))
+        # limit the stepsize so that a quadratic approximation is valid
+        val_max_step = min(abs(vec_coeff[2]/vec_coeff[5])^(1/4), abs(vec_coeff[3]/vec_coeff[5])^(1/2)) / 2
+        # determine the stepsize by the quadratic and linear terms
+        val_approx_step = -vec_coeff[2] / (2*vec_coeff[3])
+        val_step_output = min(val_approx_step, val_max_step)
+        # check if the stepsize gives a decrease in the objective value
+        if print
+            if func_obj(val_step_output) > val_obj + VAL_TOL
+                println("DEBUG: use quadratic approximation due to insiginificant quartic term in the line search!")
+                println("DEBUG: the interpolation coefficients are ", vec_coeff)
+                println("DEBUG: the current function slope is ", val_slope)
+                println("DEBUG: the current function value is ", val_obj)
+                println("DEBUG: the current linear forms is ", tuple_linear_forms)
+                println("DEBUG: the current target quadric is ", vec_target_quadric)
+                println("DEBUG: the current search direction is ", vec_dir)
+            end
+        end
+        return val_step_output 
+    end
+    #= TODO: remove the old way of checking the interpolation validity
+    if vec_coeff[end] < VAL_TOL || 
+        abs(val_slope-vec_coeff[2])/max(abs(val_slope),abs(vec_coeff[2])) > 0.1
         println("DEBUG: the interpolation coefficients are ", vec_coeff)
+        println("DEBUG: the interpolation values are ", vec_value)
+        println("DEBUG: the supplied gradient norm is ", norm(vec_grad))
+        println("DEBUG: the supplied direction norm is ", norm(vec_dir))
         println("DEBUG: the current function slope is ", val_slope)
         println("DEBUG: the current function value is ", val_obj)
-        println("DEBUG: the quartic interpolation returns invalid results!")
+        println("DEBUG: the current linear forms is ", tuple_linear_forms)
+        println("DEBUG: the current target quadric is ", vec_target_quadric)
+        println("DEBUG: the current search direction is ", vec_dir)
+        error("ERROR: the quartic interpolation returns invalid results!")
     end
-    # solve for critical points of the stepsize
-    vec_critical_step = sort(find_cubic_roots(vec_coeff .* [1,2,3,4]))
+    =#
+    # solve for critical points of the stepsize based on the quartic interpolation
+    vec_critical_step = sort(find_cubic_roots(vec_coeff[2:5] .* [1,2,3,4]))
     # initialize the outputs
-    val_step_output = 1.0
+    val_step_output = 0.0
     # compare the function values to determine the stepsize
     if length(vec_critical_step) == 0
         return 0.0
     elseif length(vec_critical_step) == 1
         val_step_output = vec_critical_step[1]
     else
-        val_obj1 = func_obj_val(mat_linear_forms + vec_critical_step[1] .* mat_direction)
-        val_obj3 = func_obj_val(mat_linear_forms + vec_critical_step[3] .* mat_direction)
+        val_obj1 = func_obj(vec_critical_step[1])
+        val_obj3 = func_obj(vec_critical_step[3])
         if val_obj1 <= val_obj3
             val_step_output = vec_critical_step[1]
         else
             val_step_output = vec_critical_step[3]
+        end
+    end
+    # check if the step leads to a smaller objective value
+    if print
+        if func_obj(val_step_output) > val_obj + VAL_TOL
+            println("DEBUG: the interpolation coefficients are ", vec_coeff)
+            println("DEBUG: the current function slope is ", val_slope)
+            println("DEBUG: the current function value is ", val_obj)
+            println("DEBUG: the current linear forms is ", tuple_linear_forms)
+            println("DEBUG: the current target quadric is ", vec_target_quadric)
+            println("DEBUG: the current search direction is ", vec_dir)
         end
     end
     return val_step_output
@@ -143,7 +170,7 @@ function solve_gradient_descent(
         num_max_iter::Int = NUM_MAX_ITER,
         val_threshold::Float64 = VAL_TOL,
         print::Bool = false,
-        str_select_step::String = "backtracking"
+        str_select_step::String = "interpolation"
     )
     if print
         println("\n" * "="^80)
@@ -201,7 +228,6 @@ function solve_gradient_descent(
                                                  coord_ring, 
                                                  vec_grad=vec_grad,
                                                  vec_dir =vec_dir,
-                                                 val_init_step=val_step,
                                                  print=print)
         else
             error("ERROR: unsupported step selection method!")
@@ -240,7 +266,7 @@ function solve_BFGS_descent(
         num_max_iter::Int = NUM_MAX_ITER,
         val_threshold::Float64 = VAL_TOL,
         print::Bool = false,
-        str_select_step::String = "backtracking"
+        str_select_step::String = "interpolation"
     )
     if print
         println("\n" * "="^80)
@@ -253,7 +279,7 @@ function solve_BFGS_descent(
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
-    idx_iter = 0
+    idx_iter = 1
     flag_converge = false
     time_start = time()
     val_obj = Inf
@@ -294,7 +320,6 @@ function solve_BFGS_descent(
                                                  coord_ring, 
                                                  vec_grad=vec_grad_old,
                                                  vec_dir =vec_dir,
-                                                 val_init_step=val_step,
                                                  print=print)
         else
             error("ERROR: unsupported step selection method!")
@@ -302,7 +327,7 @@ function solve_BFGS_descent(
         # get the new point and its gradient
         vec_point_new = vec_point_old + val_step * vec_dir
         vec_sos_new = get_sos(vec_point_new,coord_ring)
-        vec_grad_new = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_sos_new-vec_target_quadric)
+        vec_grad_new = 2*transpose(build_diff_map(vec_point_new,coord_ring))*(vec_sos_new-vec_target_quadric)
         if any(isnan.(vec_grad_new))
             error("ERROR: the gradient contains NaN!")
         end
@@ -325,7 +350,7 @@ function solve_BFGS_descent(
             mat_inv_approx = (I-ρ*s*y')*H*(I-ρ*y*s') + ρ*s*s'
             # check if the curvature condition is satisfied 1/ρ > 0 
             # (if it is close to zero then stagnancy may occur)
-            if abs(y'*s) < VAL_TOL
+            if abs(y'*s) < VAL_TOL * max(norm(y),norm(s))
                 println("DEBUG: the curvature condition is not satisfied with value ", y'*s)
             end
         end
@@ -393,7 +418,7 @@ function solve_lBFGS_descent(
         num_max_iter::Int = NUM_MAX_ITER,
         val_threshold::Float64 = VAL_TOL,
         print::Bool = false,
-        str_select_step::String = "backtracking"
+        str_select_step::String = "interpolation"
     )
     if print
         println("\n" * "="^80)
@@ -406,7 +431,7 @@ function solve_lBFGS_descent(
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
     # initialize the iteration info
-    idx_iter = 0
+    idx_iter = 1
     flag_converge = false
     time_start = time()
     val_obj = Inf
@@ -432,7 +457,7 @@ function solve_lBFGS_descent(
     # start the main loop
     while idx_iter <= num_max_iter
         # find the descent direction based on the limited-memory update history
-        vec_dir = find_descent_direction_limited_memory(vec_grad_old, vec_update_point, vec_update_grad)
+        vec_dir = find_lBFGS_direction(vec_grad_old, vec_update_point, vec_update_grad)
         # select the stepsize based on the given step selection method
         val_step = val_step_default
         if str_select_step == "backtracking"
@@ -460,7 +485,6 @@ function solve_lBFGS_descent(
                                                  coord_ring, 
                                                  vec_grad=vec_grad_old,
                                                  vec_dir =vec_dir,
-                                                 val_init_step=val_step,
                                                  print=print)
         else
             error("ERROR: unsupported step selection method!")
@@ -470,7 +494,7 @@ function solve_lBFGS_descent(
         # get the current sos
         vec_sos_new = get_sos(vec_point_new,coord_ring)
         # get gradient vector
-        vec_grad_new = 2*transpose(build_diff_map(tuple_linear_forms,coord_ring))*(vec_sos_new-vec_target_quadric)
+        vec_grad_new = 2*transpose(build_diff_map(vec_point_new,coord_ring))*(vec_sos_new-vec_target_quadric)
         if any(isnan.(vec_grad_new))
             error("ERROR: the gradient contains NaN!")
         end

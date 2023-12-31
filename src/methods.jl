@@ -158,21 +158,21 @@ function find_cubic_roots(
     return real.(filter(y->abs(imag(y))<val_tol, x))
 end
 
-# function that interpolates a univariate quartic polynomial passing through 0 at 0,
-# i.e., f(x)=a₄x⁴+a₃x³+a₂x²+a₁x, using function values at four given points
+# function that interpolates a univariate quartic polynomial, i.e., 
+# f(x)=a₄x⁴+a₃x³+a₂x²+a₁x+a₀, using function values at five given points
 function interpolate_quartic_Vandermonde(
         vec_points::Vector{T},
         vec_values::Vector{T}
     ) where T <: Real
     # check the input lengths
-    if  length(vec_points) != 4 ||
-        length(vec_values) != 4 
+    if  length(vec_points) != 5 ||
+        length(vec_values) != 5 
         error("Invalid input for quartic polynomial interpolation!")
     end
     # form the coefficient matrix 
-    C = zeros(4,4)
-    for i = 1:4
-        C[i,:] = vec_points[i].^[1,2,3,4]
+    C = zeros(5,5)
+    for i = 1:5
+        C[i,:] = vec_points[i].^[0,1,2,3,4]
     end
     v = vec_values
     # solve for the coefficients

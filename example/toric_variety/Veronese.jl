@@ -4,24 +4,30 @@ include("./toric.jl")
 function experiment_Veronese(
         deg::Int,
         dim::Int;
-        num_rep::Int = 1
+        num_rep::Int = 1,
+        num_square::Int = -1
     )
     # define the lattice polytope vertex matrix
-    mat_vertices = diagm(ones(Int,dim).*deg)
+    mat_vertices = vcat(diagm(ones(Int,dim).*deg),zeros(Int,dim)')
     # get the coordinate ring information
     coord_ring = build_ring_from_polytope(mat_vertices)
     # set the number of squares (that satisfies the Barvinok-Pataki bound)
-    num_square = ceil(Int, sqrt(2*binomial(deg+dim,deg)))
+    if num_square < 0
+        num_square = ceil(Int, sqrt(2*binomial(deg+dim,deg)))
+    end
     # run a single test
     if num_rep == 1
         # choose randomly a target
         tuple_random = rand(num_square*coord_ring.dim1)
         target_sos = get_sos(tuple_random, coord_ring)
-        # run the local descent method
-        #TODO: improve efficiency
-        #solve_gradient_descent(num_square, target_sos, coord_ring, print=true, num_max_iter=5000)
+        # choose randomly a starting point
+        tuple_start = rand(num_square*coord_ring.dim1)
+        # run the line search method
+        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
         # call the external solver for comparison
-        call_NLopt(num_square, target_sos, coord_ring)
+        call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
     # run a batch of multiple tests
     elseif num_rep > 1
         # print the experiment setup information
@@ -40,7 +46,7 @@ function experiment_Veronese(
                 # check the optimality conditions
                 vec_sos = get_sos(vec_sol, coord_ring)
                 mat_Jac = build_Jac_mat(vec_sol, coord_ring)
-                vec_grad = mat_Jac' * (vec_sos-target_sos)
+                vec_grad = 2*mat_Jac'*(vec_sos-target_sos)
                 mat_Hess = build_Hess_mat(num_square, vec_sol, target_sos, coord_ring)
                 printfmtln("The grad norm = {:<10.4e} and the min eigenval of Hessian = {:<10.4e}",
                            norm(vec_grad), minimum(eigen(mat_Hess).values))
@@ -50,5 +56,6 @@ function experiment_Veronese(
     end
 end
 
-# execute the test
-experiment_Veronese(2,10,num_rep=100)
+# conduct the experiments
+experiment_Veronese(2,10,num_rep=1000)
+#experiment_Veronese(2,2,num_square=3)

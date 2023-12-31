@@ -32,6 +32,8 @@ function call_NLopt(
         coord_ring::CoordinateRing2;
         tuple_linear_forms::Vector{Float64} = Float64[],
         val_threshold::Float64 = VAL_TOL,
+        num_max_time::Int = 3600,
+        num_max_eval::Int = 2*NUM_MAX_ITER,
         print::Bool = false
     )
     # generate a starting point randomly if not supplied
@@ -48,6 +50,9 @@ function call_NLopt(
     opt = Opt(:LD_LBFGS, num_square*coord_ring.dim1)
     # set the objective function
     opt.min_objective = (l,g)->obj_NLopt!(l,g,coord_ring,vec_target_quadric)
+    # set the forced termination criterion
+    opt.maxeval = num_max_eval
+    opt.maxtime = num_max_time
     # call the solver and measure the total time
     time_start = time()
     (val_opt,sol_opt,status) = optimize(opt, tuple_linear_forms)
