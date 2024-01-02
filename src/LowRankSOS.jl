@@ -9,7 +9,7 @@ using Formatting
 # export types and methods for application programming interface
 export CoordinateRing2
 export idx_sym, get_sos, build_Jac_mat, build_Hess_mat
-export solve_gradient_descent, solve_BFGS_descent, solve_lBFGS_descent
+export solve_gradient_descent, solve_CG_descent, solve_BFGS_descent, solve_lBFGS_descent
 export call_NLopt
 
 # define the option of enabling dense methods
@@ -18,14 +18,14 @@ const DENSE_METHODS = false
 # define common constants
 const NUM_DIG = 8
 const VAL_TOL = 1.0e-8
-const VAL_PEN = 1.0
+const VAL_PEN = 1.0e4
 const NUM_MAX_ITER = 1000
 const NUM_MEM_SIZE = 20
 
 # include the source files of basic types and methods
 include("types.jl")
 include("methods.jl")
-include("line_search.jl") # currently numerically unstable
+include("line_search.jl")
 include("solver_call.jl")
 
 

@@ -88,6 +88,10 @@ function select_step_interpolation(
     vec_value = func_obj.(Chebx)
     # interpolate the quartic polynomial
     vec_coeff = interpolate_quartic_Chebyshev(vec_value)
+    # check if the interpolation is valid
+    if vec_coeff[1] < -VAL_TOL
+        error("ERROR: the interpolation has a negative constant term and is thus invalid!")
+    end
     # check if the interpolation has a significant quartic term
     if vec_coeff[end] < -VAL_TOL
         error("ERROR: the quartic interpolation returns negative quartic term!")
@@ -111,21 +115,6 @@ function select_step_interpolation(
         end
         return val_step_output 
     end
-    #= TODO: remove the old way of checking the interpolation validity
-    if vec_coeff[end] < VAL_TOL || 
-        abs(val_slope-vec_coeff[2])/max(abs(val_slope),abs(vec_coeff[2])) > 0.1
-        println("DEBUG: the interpolation coefficients are ", vec_coeff)
-        println("DEBUG: the interpolation values are ", vec_value)
-        println("DEBUG: the supplied gradient norm is ", norm(vec_grad))
-        println("DEBUG: the supplied direction norm is ", norm(vec_dir))
-        println("DEBUG: the current function slope is ", val_slope)
-        println("DEBUG: the current function value is ", val_obj)
-        println("DEBUG: the current linear forms is ", tuple_linear_forms)
-        println("DEBUG: the current target quadric is ", vec_target_quadric)
-        println("DEBUG: the current search direction is ", vec_dir)
-        error("ERROR: the quartic interpolation returns invalid results!")
-    end
-    =#
     # solve for critical points of the stepsize based on the quartic interpolation
     vec_critical_step = sort(find_cubic_roots(vec_coeff[2:5] .* [1,2,3,4]))
     # initialize the outputs
@@ -253,7 +242,6 @@ function solve_gradient_descent(
     end
     return tuple_linear_forms, val_obj
 end
-
 
 ## Quasi-Newton methods
 
@@ -534,4 +522,137 @@ function solve_lBFGS_descent(
     return vec_point_new, val_obj
 end
 
+
+
+
+## Conjugate Gradient methods
+
+# function that implements a conjugate gradient method that allows difference choices of update formulas
+# more details can be found in Hager and Zhang (2005)
+function solve_CG_descent(
+        num_square::Int,
+        vec_target_quadric::Vector{Float64},
+        coord_ring::CoordinateRing2,
+        num_restart_step::Int = num_square;
+        tuple_linear_forms::Vector{Float64} = Float64[],
+        num_max_iter::Int = NUM_MAX_ITER,
+        val_threshold::Float64 = VAL_TOL,
+        print::Bool = false,
+        str_select_step::String = "interpolation",
+        str_CG_update::String = "HagerZhang"
+    )
+    if print
+        println("\n" * "="^80)
+    end
+    # generate a starting point randomly if not supplied
+    if length(tuple_linear_forms) != num_square*coord_ring.dim1
+        if print
+            println("Start the CG method with a randomly picked point!")
+        end
+        tuple_linear_forms = rand(num_square*coord_ring.dim1)
+    end
+    # initialize the iteration info
+    idx_iter = 1
+    idx_cycle = 0
+    flag_converge = false
+    time_start = time()
+    val_obj = Inf
+    # calculate the initial sos
+    vec_sos = get_sos(tuple_linear_forms,coord_ring)
+    # get gradient vector
+    mat_Jac = build_diff_map(tuple_linear_forms,coord_ring)
+    vec_grad = 2*mat_Jac'*(vec_sos-vec_target_quadric)
+    # use the initial norms as scaling factors
+    norm_init = norm(tuple_linear_forms)
+    norm_init_grad = norm(vec_grad)
+    val_rescale = min(1.0, (norm_init / norm_init_grad))
+    # set the termination threshold based on the initial norm
+    val_term = max(val_threshold * sqrt(num_square * coord_ring.dim1), val_threshold * norm_init)
+    # set the default step size
+    val_step_default = 1.0
+    # declare the points, directions and gradients used in the iterations
+    vec_grad_old = vec_grad
+    vec_grad_new = vec_grad
+    vec_dir = -vec_grad
+    # start the main loop
+    while idx_iter <= num_max_iter
+        # check if a restart is needed
+        if idx_cycle >= num_restart_step
+            vec_dir = -vec_grad_old
+            idx_cycle = 0
+        end
+        # select the stepsize based on the given step selection method
+        val_step = 1.0
+        if str_select_step == "backtracking"
+            val_step = select_step_backtracking(tuple_linear_forms,
+                                                vec_target_quadric, 
+                                                coord_ring, 
+                                                vec_grad=vec_grad_old,
+                                                vec_dir =vec_dir,
+                                                val_init_step=val_step,
+                                                print=print)
+        elseif str_select_step == "interpolation"
+            val_step = select_step_interpolation(tuple_linear_forms,
+                                                 vec_target_quadric, 
+                                                 coord_ring, 
+                                                 vec_grad=vec_grad_old,
+                                                 vec_dir =vec_dir,
+                                                 print=print)
+        else
+            error("ERROR: unsupported step selection method!")
+        end
+        # update the current linear forms and the objective
+        tuple_linear_forms += val_step .* vec_dir
+        # get the new sos
+        vec_sos = get_sos(tuple_linear_forms,coord_ring)
+        val_obj = norm(vec_sos-vec_target_quadric,2)^2
+        # get the new Jacobian matrix
+        mat_Jac = build_diff_map(tuple_linear_forms,coord_ring)
+        # get gradient vector
+        vec_grad_new = 2*mat_Jac'*(vec_sos-vec_target_quadric)
+        if any(isnan.(vec_grad_new))
+            error("ERROR: the gradient contains NaN!")
+        end
+        # print the algorithm progress
+        if print
+            printfmtln("  Iter {:<4d}: obj = {:<10.6e}, step = {:<10.4e}, grad norm = {:<10.4e}", 
+                       idx_iter, val_obj , val_step, norm(vec_grad_new))
+        end
+        # check if the gradient is sufficiently small
+        if norm(vec_grad_new) < val_term 
+            flag_converge = true
+            break
+        end
+        # find the new search direction based on the input CG update parameter
+        val_CG_update = 0.0
+        if str_CG_update == "FletcherReeves"
+            val_CG_update = (vec_grad_new'*vec_grad_new)/(vec_grad_old'*vec_grad_old)
+        elseif str_CG_update == "PolakRibiere"
+            val_CG_update = vec_grad_new'*(vec_grad_new-vec_grad_old)/(vec_grad_old'*vec_grad_old)
+        elseif str_CG_update == "DaiYuan"
+            val_CG_update = vec_grad_new'*vec_grad_new/(vec_dir'*(vec_grad_new-vec_grad_old))
+        elseif str_CG_update == "HagerZhang"
+            vec_grad_diff = vec_grad_new-vec_grad_old
+            val_prod = vec_dir'*vec_grad_diff
+            val_CG_update = (vec_grad_diff-2*vec_dir*(vec_grad_diff'*vec_grad_diff)/val_prod)' * vec_grad_new / val_prod
+        else
+            error("ERROR: unsupported CG update parameter!")
+        end
+        # set the new direction
+        vec_dir = -vec_grad_new + val_CG_update*vec_dir
+        # update the recorded gradient and move to the next iteration
+        vec_grad_old = vec_grad_new
+        idx_iter += 1
+    end
+    # print the number of iterations and total time
+    if print
+        if flag_converge
+            println("The CG descent method with ", str_select_step, " step selection and ", str_CG_update, " update has converged within ", idx_iter, " iterations!")
+        else
+            println("The CG descent method with ", str_select_step, " step selection and ", str_CG_update, " update has exceeded the maximum iterations!")
+        end
+        println("The CG descent method with ", str_select_step, " step selection and ", str_CG_update, " update uses ", time() - time_start, " seconds.")
+    end
+    return tuple_linear_forms, val_obj
+end
 

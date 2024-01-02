@@ -23,9 +23,24 @@ function experiment_scroll(
         # choose randomly a starting point
         tuple_start = rand(num_square*coord_ring.dim1)
         # run the line search method
-        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
-        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
-        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="backtracking")
+        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="interpolation")
+        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="backtracking")
+        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="interpolation")
+        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="backtracking")
+        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="FletcherReeves", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="FletcherReeves", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="FletcherReeves", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="DaiYuan", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="DaiYuan", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="DaiYuan", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="interpolation")
         # call the external solver for comparison
         call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
     # run a batch of multiple tests
@@ -58,4 +73,4 @@ end
 
 # conduct the experiments
 #experiment_scroll(collect(2:8), num_rep=1000)
-experiment_scroll([50,100,150])
+experiment_scroll([4,5,6])
