@@ -533,7 +533,7 @@ function solve_CG_descent(
         num_square::Int,
         vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2,
-        num_restart_step::Int = num_square;
+        num_restart_step::Int = -1;
         tuple_linear_forms::Vector{Float64} = Float64[],
         num_max_iter::Int = NUM_MAX_ITER,
         val_threshold::Float64 = VAL_TOL,
@@ -550,6 +550,10 @@ function solve_CG_descent(
             println("Start the CG method with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
+    end
+    # set the number of restarting steps if not supplied
+    if num_restart_step <= 0
+        num_restart_step = num_square * coord_ring.dim1
     end
     # initialize the iteration info
     idx_iter = 1
@@ -580,6 +584,9 @@ function solve_CG_descent(
         if idx_cycle >= num_restart_step
             vec_dir = -vec_grad_old
             idx_cycle = 0
+            if print
+                println("DEBUG: CG cycle reset with the steepest descent direction!")
+            end
         end
         # select the stepsize based on the given step selection method
         val_step = 1.0
@@ -643,6 +650,7 @@ function solve_CG_descent(
         # update the recorded gradient and move to the next iteration
         vec_grad_old = vec_grad_new
         idx_iter += 1
+        idx_cycle += 1
     end
     # print the number of iterations and total time
     if print
