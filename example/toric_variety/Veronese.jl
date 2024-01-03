@@ -43,8 +43,10 @@ function experiment_Veronese(
             # choose randomly a target
             tuple_random = rand(num_square*coord_ring.dim1)
             target_sos = get_sos(tuple_random, coord_ring)
+            # choose randomly a starting point
+            tuple_start = rand(num_square*coord_ring.dim1)
             # solve the problem and check the optimal value
-            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, print=true)
+            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
             if val_res < LowRankSOS.VAL_TOL
                 vec_success[idx] = 1
             else
@@ -55,6 +57,12 @@ function experiment_Veronese(
                 mat_Hess = build_Hess_mat(num_square, vec_sol, target_sos, coord_ring)
                 printfmtln("The grad norm = {:<10.4e} and the min eigenval of Hessian = {:<10.4e}",
                            norm(vec_grad), minimum(eigen(mat_Hess).values))
+                # start the adaptive moves along a direct path connecting the quadrics
+                println("Re-solve the problem using the direct path method...")
+                vec_sol, val_res = move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+                if val_res < LowRankSOS.VAL_TOL
+                    vec_success[idx] = 1
+                end
             end
         end
         println("\nGlobal optima are found in ", sum(vec_success), " out of ", num_rep, " experiment runs")
@@ -62,5 +70,4 @@ function experiment_Veronese(
 end
 
 # conduct the experiments
-#experiment_Veronese(2,10,num_rep=1000)
-experiment_Veronese(2,10)
+experiment_Veronese(2,10,num_rep=100)
