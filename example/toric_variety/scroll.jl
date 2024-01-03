@@ -42,7 +42,8 @@ function experiment_scroll(
         solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="interpolation")
         solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="interpolation")
         # run the direct path algorithm
-        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="CG")
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="lBFGS")
         # call the external solver for comparison
         call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
     # run a batch of multiple tests

@@ -26,6 +26,11 @@ function experiment_Veronese(
         solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
         solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
         solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang")
+        # run the direct path algorithm
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="CG")
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="lBFGS")
         # call the external solver for comparison
         call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
     # run a batch of multiple tests
@@ -57,5 +62,5 @@ function experiment_Veronese(
 end
 
 # conduct the experiments
-experiment_Veronese(2,10,num_rep=1000)
-#experiment_Veronese(2,2,num_square=3)
+#experiment_Veronese(2,10,num_rep=1000)
+experiment_Veronese(2,10)
