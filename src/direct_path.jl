@@ -10,20 +10,20 @@ function move_direct_path(
         coord_ring::CoordinateRing2;
         tuple_linear_forms::Vector{Float64} = Float64[],
         val_threshold::Float64 = sqrt(VAL_TOL),
-        print::Bool = false,
+        print_level::Int = 0,
         num_move_increase::Int = 2,
         val_move_increase::Float64 = (1+√5)/2,
         val_move_decrease::Float64 = (√5-1)/2,
         num_max_move::Int = NUM_MAX_MOVE,
-        str_descent_method::String = "lBFGS-NLopt",
+        str_descent_method::String = "CG-push",
         str_select_step::String = "interpolation"
     )
-    if print
+    if print_level > 0
         println("\n" * "="^80)
     end
     # generate a starting point randomly if not supplied
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
-        if print
+        if print_level > 0
             println("Start the direct path method with a randomly picked tuple!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
@@ -65,17 +65,23 @@ function move_direct_path(
                                                       coord_ring, 
                                                       tuple_linear_forms=tuple_linear_forms, 
                                                       str_select_step=str_select_step)
+        elseif str_descent_method == "CG-push"
+            tuple_temp, val_res_sq = solve_CG_push_descent(num_square, 
+                                                           vec_temp_target, 
+                                                           coord_ring, 
+                                                           tuple_linear_forms=tuple_linear_forms, 
+                                                           str_select_step=str_select_step)
         elseif str_descent_method == "lBFGS-NLopt"
             tuple_temp, val_res_sq = call_NLopt(num_square, 
-                                                target_sos, 
+                                                vec_temp_target, 
                                                 coord_ring, 
-                                                tuple_linear_forms=tuple_start)
+                                                tuple_linear_forms=tuple_linear_forms)
         else
             error("ERROR: unsupported local descent method for the direct path algorithm!")
         end
         # print the progress
-        if print
-            printfmtln(" Update {:<4d}: target dist = {:<10.6e}, move dist = {:<10.4e}, res = {:<10.4e}", 
+        if print_level > 0
+            printfmtln(" Update {:<4d}: target dist = {:<10.5e}, attempt move = {:<10.5e}, res = {:<10.5e}", 
                        idx_iter, val_dist_total, val_move_dist, val_res_sq^(1/2))
         end
         # check if the residual is brought down to zero
@@ -83,9 +89,6 @@ function move_direct_path(
             val_move_dist *= val_move_decrease
             # terminate the algorithm if no movement can be made
             if val_move_dist < min(VAL_TOL, val_threshold)
-                if print
-                    println("The direct path algorithm with ", str_descent_method, " method uses ", time() - time_start, " seconds.")
-                end
                 break
             end
             ctr_move_suc = 0
@@ -108,7 +111,7 @@ function move_direct_path(
         idx_iter += 1
     end
     # print the number of iterations and total time
-    if print
+    if print_level >= 0
         if flag_success
             println("The direct path algorithm with ", str_descent_method, " method has completed the certification successfully!")
         else

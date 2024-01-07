@@ -23,29 +23,29 @@ function experiment_scroll(
         # choose randomly a starting point
         tuple_start = rand(num_square*coord_ring.dim1)
         # run the line search method
-        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="backtracking")
-        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="interpolation")
-        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="backtracking")
-        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="interpolation")
-        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="backtracking")
-        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="FletcherReeves", str_select_step="backtracking")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="FletcherReeves", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="FletcherReeves", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere", str_select_step="backtracking")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="DaiYuan", str_select_step="backtracking")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="DaiYuan", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="DaiYuan", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="backtracking")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="interpolation")
-        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang", str_select_step="interpolation")
+        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="backtracking")
+        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="interpolation")
+        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="backtracking")
+        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="interpolation")
+        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="backtracking")
+        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="FletcherReeves", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="FletcherReeves", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="FletcherReeves", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="PolakRibiere", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="PolakRibiere", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="PolakRibiere", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="DaiYuan", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="DaiYuan", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="DaiYuan", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="HagerZhang", str_select_step="backtracking")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="HagerZhang", str_select_step="interpolation")
+        solve_CG_descent(num_square, target_sos, coord_ring, LowRankSOS.NUM_MAX_ITER, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="HagerZhang", str_select_step="interpolation")
         # run the direct path algorithm
-        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="CG")
-        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="lBFGS")
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_descent_method="CG")
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_descent_method="lBFGS")
         # call the external solver for comparison
-        call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
     # run a batch of multiple tests
     elseif num_rep > 1
         # print the experiment setup information
@@ -57,7 +57,7 @@ function experiment_scroll(
             tuple_random = rand(num_square*coord_ring.dim1)
             target_sos = get_sos(tuple_random, coord_ring)
             # solve the problem and check the optimal value
-            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, print=true)
+            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, print_level=1)
             if val_res < LowRankSOS.VAL_TOL
                 vec_success[idx] = 1
             else

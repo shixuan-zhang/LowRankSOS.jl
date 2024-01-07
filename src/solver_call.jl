@@ -34,14 +34,14 @@ function call_NLopt(
         val_threshold::Float64 = VAL_TOL,
         num_max_time::Int = 3600,
         num_max_eval::Int = 2*NUM_MAX_ITER,
-        print::Bool = false
+        print_level::Int = 0
     )
     # generate a starting point randomly if not supplied
-    if print
+    if print_level > 0
         println("\n"*"="^80)
     end
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
-        if print
+        if print_level > 0
             println("Start the NLopt solver with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
@@ -58,7 +58,7 @@ function call_NLopt(
     (val_opt,sol_opt,status) = optimize(opt, tuple_linear_forms)
     time_end = time()
     # check the solution summary
-    if print
+    if print_level >= 0
         println("The NLopt l-BFGS solver terminates with status: ", status)
         printfmtln("The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
                 val_opt, time_end-time_start, opt.numevals)

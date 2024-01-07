@@ -23,16 +23,17 @@ function experiment_Veronese(
         # choose randomly a starting point
         tuple_start = rand(num_square*coord_ring.dim1)
         # run the line search method
-        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
-        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
-        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="PolakRibiere")
-        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_CG_update="HagerZhang")
+        solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
+        solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
+        solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="PolakRibiere")
+        solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="HagerZhang")
+        solve_CG_push_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
         # run the direct path algorithm
-        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="CG")
-        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true, str_descent_method="lBFGS")
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_descent_method="CG")
+        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_descent_method="lBFGS")
         # call the external solver for comparison
-        call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+        call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
     # run a batch of multiple tests
     elseif num_rep > 1
         # print the experiment setup information
@@ -46,7 +47,7 @@ function experiment_Veronese(
             # choose randomly a starting point
             tuple_start = rand(num_square*coord_ring.dim1)
             # solve the problem and check the optimal value
-            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+            vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
             if val_res < LowRankSOS.VAL_TOL
                 vec_success[idx] = 1
             else
@@ -59,7 +60,7 @@ function experiment_Veronese(
                            norm(vec_grad), minimum(eigen(mat_Hess).values))
                 # start the adaptive moves along a direct path connecting the quadrics
                 println("Re-solve the problem using the direct path method...")
-                vec_sol, val_res = move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print=true)
+                vec_sol, val_res = move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, str_descent_method="CG-push", print_level=1)
                 if val_res < LowRankSOS.VAL_TOL
                     vec_success[idx] = 1
                 end
@@ -70,4 +71,4 @@ function experiment_Veronese(
 end
 
 # conduct the experiments
-experiment_Veronese(2,10,num_rep=100)
+experiment_Veronese(2,10, num_rep=1000)
