@@ -1,21 +1,26 @@
-include("./toric.jl")
+include("./plane_curve.jl")
 
-# function that conducts experiments of the low-rank SOS method on the Veronese variety
-function experiment_Veronese(
-        deg::Int,
-        dim::Int;
+const MAX_RAND_COEFF = 7
+
+# function that conducts experiments of the low-rank SOS method on the cubic curve
+function experiment_cubic_curve(
+        curve_coeff::Dict{Vector{Int},T} = Dict{Vector{Int},Int}();
+        deg_target::Int = 2,
         num_rep::Int = 1,
-        num_square::Int = -1,
+        num_square::Int = 3,
         val_tol::Float64 = 1.0e-4
-    )
-    # define the lattice polytope vertex matrix
-    mat_vertices = vcat(diagm(ones(Int,dim).*deg),zeros(Int,dim)')
-    # get the coordinate ring information
-    coord_ring = build_ring_from_polytope(mat_vertices)
-    # set the number of squares (that satisfies the Barvinok-Pataki bound)
-    if num_square < 0
-        num_square = ceil(Int, sqrt(2*binomial(deg+dim,deg)))
+    ) where T <: Union{Int,Rational{Int}}
+    # randomly specify the curve if the coefficients are not supplied
+    if length(curve_coeff) == 0
+        # loop over all monomials under degree 3
+        for i=0:3,j=0:(3-i)
+            curve_coeff[[i,j]] = rand(-MAX_RAND_COEFF:MAX_RAND_COEFF)
+        end
     end
+    # check if the target degree is at least 2
+    deg_target = max(deg_target,2)
+    # get the coordinate ring information
+    coord_ring = build_ring_from_plane_curve(curve_coeff,deg_target,print_level=0)
     # run a single test
     if num_rep == 1
         # choose randomly a target
@@ -29,18 +34,14 @@ function experiment_Veronese(
         solve_lBFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
         solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="PolakRibiere")
         solve_CG_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_CG_update="HagerZhang")
-        solve_CG_push_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
-        solve_CG_push_descent(num_square, target_sos, coord_ring, 1, tuple_linear_forms=tuple_start, print_level=1)
-        solve_CG_push_descent(num_square, target_sos, coord_ring, 0, tuple_linear_forms=tuple_start, print_level=1)
         # run the direct path algorithm
         move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_descent_method="CG")
-        move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_descent_method="lBFGS")
         # call the external solver for comparison
         call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
     # run a batch of multiple tests
     elseif num_rep > 1
         # print the experiment setup information
-        println("Start experiments on Veronese variety with degree = ", deg, ", and dimension = ", dim, "\n\n")
+        println("Start experiments on certification of degree-", deg_target, " forms on a cubic curve \n\n")
         # record whether each experiment run achieves global minimum 0
         vec_success = zeros(Int,num_rep)
         for idx in 1:num_rep
@@ -52,7 +53,7 @@ function experiment_Veronese(
             tuple_start = rand(num_square*coord_ring.dim1)
             # solve the problem and check the optimal value
             #vec_sol, val_res = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
-            vec_sol, val_res = solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=0, val_tol_norm=val_tol)
+            vec_sol, val_res = solve_BFGS_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, val_tol_norm=val_tol)
             vec_sos = get_sos(vec_sol,coord_ring)
             if norm(vec_sos-target_sos) < val_tol
                 vec_success[idx] = 1
@@ -66,7 +67,7 @@ function experiment_Veronese(
                            norm(vec_sos-target_sos), norm(vec_grad), minimum(eigen(mat_Hess).values))
                 # start the adaptive moves along a direct path connecting the quadrics
                 println("Re-solve the problem using the direct path method...")
-                vec_sol, val_res = move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, str_descent_method="BFGS", print_level=1, val_threshold=val_tol)
+                vec_sol, val_res = move_direct_path(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, str_descent_method="BFGS", print_level=2, val_threshold=val_tol)
                 vec_sos = get_sos(vec_sol, coord_ring)
                 if norm(vec_sos-target_sos) < val_tol
                     vec_success[idx] = 1
@@ -77,5 +78,4 @@ function experiment_Veronese(
     end
 end
 
-# conduct the experiments
-experiment_Veronese(2,10,num_rep=1000)
+experiment_cubic_curve(deg_target=20,num_rep=1000)

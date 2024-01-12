@@ -53,6 +53,7 @@ function experiment_scroll(
         # record whether each experiment run achieves global minimum 0
         vec_success = zeros(Int,num_rep)
         for idx in 1:num_rep
+            println("\n" * "="^80)
             # choose randomly a target
             tuple_random = rand(num_square*coord_ring.dim1)
             target_sos = get_sos(tuple_random, coord_ring)

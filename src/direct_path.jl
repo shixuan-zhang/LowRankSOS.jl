@@ -9,13 +9,13 @@ function move_direct_path(
         vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2;
         tuple_linear_forms::Vector{Float64} = Float64[],
-        val_threshold::Float64 = sqrt(VAL_TOL),
+        val_threshold::Float64 = VAL_TOL,
         print_level::Int = 0,
         num_move_increase::Int = 2,
         val_move_increase::Float64 = (1+√5)/2,
         val_move_decrease::Float64 = (√5-1)/2,
         num_max_move::Int = NUM_MAX_MOVE,
-        str_descent_method::String = "CG-push",
+        str_descent_method::String = "l-BFGS",
         str_select_step::String = "interpolation"
     )
     if print_level > 0
@@ -52,37 +52,47 @@ function move_direct_path(
                                                         vec_temp_target, 
                                                         coord_ring, 
                                                         tuple_linear_forms=tuple_linear_forms, 
+                                                        val_tol_norm=val_threshold,
+                                                        print_level=print_level-1,
                                                         str_select_step=str_select_step)
         elseif str_descent_method == "lBFGS"
             tuple_temp, val_res_sq = solve_lBFGS_descent(num_square, 
                                                          vec_temp_target, 
                                                          coord_ring, 
                                                          tuple_linear_forms=tuple_linear_forms, 
+                                                         val_tol_norm=val_threshold,
+                                                         print_level=print_level-1,
                                                          str_select_step=str_select_step)
         elseif str_descent_method == "CG"
             tuple_temp, val_res_sq = solve_CG_descent(num_square, 
                                                       vec_temp_target, 
                                                       coord_ring, 
                                                       tuple_linear_forms=tuple_linear_forms, 
+                                                      val_tol_norm=val_threshold,
+                                                      print_level=print_level-1,
                                                       str_select_step=str_select_step)
         elseif str_descent_method == "CG-push"
             tuple_temp, val_res_sq = solve_CG_push_descent(num_square, 
                                                            vec_temp_target, 
                                                            coord_ring, 
                                                            tuple_linear_forms=tuple_linear_forms, 
+                                                           val_tol_norm=val_threshold,
+                                                           print_level=print_level-1,
                                                            str_select_step=str_select_step)
         elseif str_descent_method == "lBFGS-NLopt"
             tuple_temp, val_res_sq = call_NLopt(num_square, 
                                                 vec_temp_target, 
                                                 coord_ring, 
+                                                print_level=print_level-1,
                                                 tuple_linear_forms=tuple_linear_forms)
         else
             error("ERROR: unsupported local descent method for the direct path algorithm!")
         end
         # print the progress
         if print_level > 0
-            printfmtln(" Update {:<4d}: target dist = {:<10.5e}, attempt move = {:<10.5e}, res = {:<10.5e}", 
-                       idx_iter, val_dist_total, val_move_dist, val_res_sq^(1/2))
+            str_status = val_res_sq^(1/2)<=val_threshold ? "success" : "failure"
+            printfmtln("{} Update {:<4d}: target dist = {:<10.5e}, attempt move = {:<10.5e}, res = {:<10.5e}: {}", 
+                       " "^print_level, idx_iter, val_dist_total, val_move_dist, val_res_sq^(1/2), str_status)
         end
         # check if the residual is brought down to zero
         if val_res_sq^(1/2) > val_threshold
@@ -112,12 +122,15 @@ function move_direct_path(
     end
     # print the number of iterations and total time
     if print_level >= 0
+        printfmt("{} The direct path algorithm with {} descent method ",
+                 " "^print_level, str_descent_method)
         if flag_success
-            println("The direct path algorithm with ", str_descent_method, " method has completed the certification successfully!")
+            println("has converged within ", idx_iter, " iterations!")
         else
-            println("The direct path algorithm with ", str_descent_method, " method has exceeded the maximum number of updates!")
+            println("has exceeded the maximum iterations!")
         end
-        println("The direct path algorithm with ", str_descent_method, " method uses ", time() - time_start, " seconds.")
+        printfmtln("{} The wall clock time is {:<6.2f} seconds.", 
+                   " "^print_level, time()-time_start)
     end
     return tuple_linear_forms, val_dist_total^2
 end

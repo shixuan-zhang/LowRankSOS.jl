@@ -42,7 +42,7 @@ function call_NLopt(
     end
     if length(tuple_linear_forms) != num_square*coord_ring.dim1
         if print_level > 0
-            println("Start the NLopt solver with a randomly picked point!")
+            println(" "^print_level * "Start the NLopt solver with a randomly picked point!")
         end
         tuple_linear_forms = rand(num_square*coord_ring.dim1)
     end
@@ -59,9 +59,9 @@ function call_NLopt(
     time_end = time()
     # check the solution summary
     if print_level >= 0
-        println("The NLopt l-BFGS solver terminates with status: ", status)
-        printfmtln("The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
-                val_opt, time_end-time_start, opt.numevals)
+        println(" "^print_level * "The NLopt l-BFGS solver terminates with status: ", status)
+        printfmtln("{} The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
+                   " "^print_level, val_opt, time_end-time_start, opt.numevals)
     end
     return sol_opt, val_opt
 end
