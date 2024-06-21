@@ -1,89 +1,124 @@
-# basic methods for low-rank sums-of-squares certification
+## Data structure construction and conversion methods for the low-rank sos problem
 
-# function that converts a symmetric matrix to a vector
-function convert_sym_to_vec(mat::AbstractMatrix{T}) where {T <: Any}
-    dim = LinearAlgebra.checksquare(mat)
-    vec = Vector{T}(undef, dim*(dim+1)÷2)
-    for i=1:dim, j=1:dim
-        if i > j
-            vec[(i-1)*i÷2+j] = mat[i,j] + mat[j,i]
-        elseif i == j
-            vec[(i-1)*i÷2+j] = mat[i,i]
+# function that converts a pair of indices of two vectors into the
+# index of upper triangular entries of a symmetric matrix in the column (grevlex) order
+# for example: (1,1),(1,2)=(2,1),(2,2),(1,3)=(3,1),(2,3)=(3,2),(3,3),…
+function idx_sym(
+        idx1::Int,
+        idx2::Int
+    )
+    i, j = min(idx1,idx2), max(idx1,idx2)
+    return Int(j*(j-1)/2 + i)
+end
+
+# function that builds the Jacobian of the sum-of-square differential 
+# at a given tuple of linear forms (in the form of a sparse matrix)
+function build_Jac_mat(
+        tuple_linear_forms::Vector{T},
+        coord_ring::CoordinateRing2
+    ) where T <: Real
+    # get the dimension of the tuple
+    dim_tuple = length(tuple_linear_forms)
+    # get the number of squares
+    num_square = dim_tuple ÷ coord_ring.dim1
+    if num_square * coord_ring.dim1 != dim_tuple
+        error("Invalid length of the input linear forms!")
+    end
+    # prepare the index and value arrays for the sparse differential matrix
+    I, J = Int[], Int[]
+    V = T[]
+    # loop over each square (in the tuple)
+    for k in 1:num_square
+        # loop over the monomials corresponding to the columns (index j)
+        # and the monomials of the linear forms to be multiplied (index i)
+        for i in 1:coord_ring.dim1, j in 1:coord_ring.dim1
+            # get the symmetric index of the Gram matrix
+            m = idx_sym(i,j)
+            # loop over the quadratic monomials to fill in the nonzero entries in the column
+            for n in findnz(coord_ring.prod[m])[1]
+                push!(I, n)
+                push!(J, j+(k-1)*coord_ring.dim1)
+                push!(V, 2*coord_ring.prod[m][n]*tuple_linear_forms[i+(k-1)*coord_ring.dim1])
+            end
         end
     end
-    return vec
+    return sparse(I,J,V,coord_ring.dim2,dim_tuple)
 end
+# define an alias for the above function
+const build_diff_map = build_Jac_mat
 
-# function to convert a vector to a symmetric matrix by the lower triangular part
-function convert_vec_to_sym(vec::AbstractVector{T}; dim::Int = 0) where {T <: Any}
-    if dim <= 0
-        dim = floor(Int, sqrt(2*length(vec)))
+# function that calculates the sum of squares of the tuple of linear forms
+function get_sos(
+        tuple_linear_forms::Vector{T},
+        coord_ring::CoordinateRing2
+    ) where T <: Real
+    # get the number of squares
+    num_square, dim_rem = divrem(length(tuple_linear_forms), coord_ring.dim1)
+    if dim_rem != 0
+        error("Invalid length of the input linear forms!")
     end
-    if dim*(dim+1)÷2 != length(vec)
-        error("Unable to convert the vector with an invalid length!")
-    end
-    mat = Matrix{T}(undef,dim,dim)
-    for i=1:dim, j=1:dim
-        if i > j
-            mat[i,j] = vec[(i-1)*i÷2+j] / 2.0
-            mat[j,i] = vec[(i-1)*i÷2+j] / 2.0
-        elseif i == j
-            mat[i,i] = vec[(i-1)*i÷2+j]
+    # get the Gram matrix of the linear forms
+    L = reshape(tuple_linear_forms, coord_ring.dim1, num_square)
+    G = L * L'
+    # prepare the output quadric vector
+    q = zeros(T,coord_ring.dim2)
+    # loop over the upper triangular entries to get the quadric (represented in its basis)
+    for i = 1:coord_ring.dim1, j = i:coord_ring.dim1
+        # check the monomial in the quadratic forms
+        m = idx_sym(i,j)
+        # loop over the quadratic monomials to fill in the nonzero entries in the column
+        for n in findnz(coord_ring.prod[m])[1]
+            q[n] += coord_ring.prod[m][n]*G[i,j]*(i==j ? 1 : 2)
         end
     end
-    return mat
+    return q
 end
 
-
-# function to construct the oblique projection matrix associated with the canonical quotient map
-# the inner product is weighted for the consistency with the inner product on the space of linear forms
-function construct_quotient_map(quad_ideal::QuadraticIdeal; num_digit::Int = NUM_DIG*2)
-    # get the dimensions of the linear forms and the quadratic forms (as vectors)
-    dim_line = quad_ideal.dim
-    dim_quad = dim_line*(dim_line+1)÷2
-    # get the number of ideal generators
-    num_gen = length(quad_ideal.mat_gen)
-    # define the matrix with columns being the generators of the ideal
-    mat_span = Matrix{Float64}(undef, dim_quad, num_gen)
-    for i=1:num_gen
-        mat_span[:,i] = convert_sym_to_vec(quad_ideal.mat_gen[i])
+# function that pulls back a linear functional on the space of quadrics
+# to a bilinear (quadratic) form on the space of linear forms
+function build_bl_form(
+        vec_quadric::Vector{T},
+        coord_ring::CoordinateRing2
+    ) where T <: Real
+    # initialize a matrix for the return
+    M = zeros(coord_ring.dim1,coord_ring.dim1)
+    # loop over the upper triangular entries to fill in the bilinear form matrix
+    for i = 1:coord_ring.dim1, j = i:coord_ring.dim1
+        # check the monomial in the quadratic forms
+        m = idx_sym(i,j)
+        # loop over the quadratic monomials to add to this entry
+        for n in findnz(coord_ring.prod[m])[1]
+            M[i,j] += coord_ring.prod[m][n] * vec_quadric[n]
+            if i != j
+                M[j,i] += coord_ring.prod[m][n] * vec_quadric[n]
+            end
+        end
     end
-    # check if the matrix has full column rank
-    rank = LinearAlgebra.rank(mat_span)
-    if rank < num_gen
-        println("The quadratic ideal generators are not linearly independent!")
-        mat_basis = LinearAlgebra.qr(mat_span).Q
-        mat_span = mat_basis[:,1:rank]
+    # return the symmetrized matrix for the bilinear form
+    return M
+end
+
+
+# function that builds the Hessian matrix of the sos objective function
+function build_Hess_mat(
+        num_square::Int,
+        tuple_linear_forms::Vector{T},
+        vec_quadric::Vector{S},
+        coord_ring::CoordinateRing2
+    ) where {T <: Real, S <: Real}
+    # initialize a matrix for the return
+    d = coord_ring.dim1
+    M = zeros(num_square*coord_ring.dim1,num_square*coord_ring.dim1)
+    # get the bilinear matrix
+    B = build_bl_form(get_sos(tuple_linear_forms,coord_ring)-vec_quadric,coord_ring)
+    # fill in the block diagonal entries
+    for k = 1:num_square
+        M[(k-1)*d+1:k*d,(k-1)*d+1:k*d] = B
     end
-    # construct the weight matrix for oblique projection
-    vec_weight = convert_sym_to_vec(LinearAlgebra.diagm(ones(dim_line) .* 1/2)) .+ 1/2
-    mat_weight = LinearAlgebra.diagm(vec_weight)
-    # calculate the oblique projection matrix 
-    mat_inv = LinearAlgebra.inv(mat_span' * mat_weight * mat_span)
-    mat_aux = round.(mat_span * mat_inv * mat_span' * mat_weight, digits=num_digit)
-    map_quotient = SparseArrays.sparse(LinearAlgebra.I - mat_aux)
-    return map_quotient
-end
-
-# function that computes the norm of a form in projection subspace of quadratic forms
-function compute_norm_proj(quad_form::Matrix{Float64}, map_quotient::AbstractMatrix{Float64})
-    # ensure the dimensions match
-    dim = LinearAlgebra.checksquare(quad_form)
-    if dim*(dim+1)÷2 != LinearAlgebra.checksquare(map_quotient)
-        error("Projection failed as the dimensions do not match!")
-    end
-    # convert to vector and then project
-    vec_quad_form = map_quotient * convert_sym_to_vec(quad_form)
-    # return its norm
-    return LinearAlgebra.norm(convert_vec_to_sym(vec_quad_form, dim=dim))
-end
-
-# function that computes the norm of a form in the degree 2 part of the coordinate ring
-function compute_norm_proj(quad_form::Matrix{Float64}, quad_ideal::QuadraticIdeal)
-    # get the projection matrix
-    map_quotient = construct_quotient_map(quad_ideal)
-    # return the norm
-    return compute_norm_proj(quad_form, map_quotient)
+    # get the Jacobian matrix
+    J = build_Jac_mat(tuple_linear_forms,coord_ring)
+    # return the sum (and multiplied by 2 by the def of Hessian)
+    return 2*(2*M + J'*J)
 end
 
 
@@ -91,22 +126,24 @@ end
 
 
 
+
+## General mathematical methods
 
 # function that calculates the real roots of a cubic function explicitly
-# see details here: https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula
+# see (details)[https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula]
 function find_cubic_roots(
         vec_coefficients::Vector{Float64};
         val_tol::Float64 = 1.0e-8
     )
     # check the number of coefficients of the cubic equation
-    if length(vec_coefficients) != 4 || vec_coefficients[1] == 0
+    if length(vec_coefficients) != 4 || vec_coefficients[4] == 0
         error("Invalid input for the cubic equation!")
     end
-    # alias the coefficient vector and calculate the modified resultants (Δ1 and Δ2)
-    a = vec_coefficients[1]
-    b = vec_coefficients[2]
-    c = vec_coefficients[3]
-    d = vec_coefficients[4]
+    # alias the coefficient vector and calculate the modified resultants (Δ₁ and Δ₂)
+    a = vec_coefficients[4]
+    b = vec_coefficients[3]
+    c = vec_coefficients[2]
+    d = vec_coefficients[1]
     Δ0 = b^2 - 3*a*c
     Δ1 = 2*b^3 - 9*a*b*c + 27*a^2*d
     # check if the resultants are zero which implies there is only one real root
@@ -121,68 +158,51 @@ function find_cubic_roots(
     return real.(filter(y->abs(imag(y))<val_tol, x))
 end
 
-# function that interpolates a univariate quartic polynomial passing through 0 at 0,
-# i.e., f(x)=a₄x⁴+a₃x³+a₂x²+a₁x, using function values and derivatives at two given points
-function interpolate_quartic_polynomial(
-        vec_points::Vector{Float64},
-        vec_values::Vector{Float64},
-        vec_slopes::Vector{Float64}
-    )
+# function that interpolates a univariate quartic polynomial, i.e., 
+# f(x)=a₄x⁴+a₃x³+a₂x²+a₁x+a₀, using function values at five given points
+function interpolate_quartic_Vandermonde(
+        vec_points::Vector{T},
+        vec_values::Vector{T}
+    ) where T <: Real
     # check the input lengths
-    if  length(vec_points) != 2 ||
-        length(vec_values) != 2 ||
-        length(vec_slopes) != 2
+    if  length(vec_points) != 5 ||
+        length(vec_values) != 5 
         error("Invalid input for quartic polynomial interpolation!")
     end
-    # form the coefficient matrix with rows 1 and 2 given by function values
-    C = zeros(4,4)
-    v = zeros(4)
-    C[1,:] = vec_points[1].^[4, 3, 2, 1]
-    C[2,:] = vec_points[2].^[4, 3, 2, 1]
-    v[1:2] = vec_values
-    # and rows 3 and 4 given by function derivatives
-    C[3,:] = vec_points[1].^[3, 2, 1, 0] .* [4, 3, 2, 1]
-    C[4,:] = vec_points[2].^[3, 2, 1, 0] .* [4, 3, 2, 1]
-    v[3:4] = vec_slopes
+    # form the coefficient matrix 
+    C = zeros(5,5)
+    for i = 1:5
+        C[i,:] = vec_points[i].^[0,1,2,3,4]
+    end
+    v = vec_values
     # solve for the coefficients
     return C \ v
 end
 
+# constants for quartic Chebyshev interpolation nodes on [-1,1]
+const Cheb₁ = cos(pi/10)
+const Cheb₂ = cos(pi*3/10)
+const Chebx = [-Cheb₁, -Cheb₂, 0, Cheb₂, Cheb₁]
+const Chebf = [ChebyshevT(diagm(ones(5))[j,:]) for j=1:5]
+const ChebF = [Chebf[i](Chebx[j]) for i=1:5, j=1:5]
 
-# function that finds a descent direction through limited memory of previous iterations
-# the implementation is the ``two-loop L-BFGS method'' 
-# (Algorithm 7.4 in Numerical Optimization, Nocedal and Wright 2006, pp.178)
-function find_descent_direction_limited_memory(
-        vec_gradient::Vector{Float64},
-        vec_updates_point::Vector{Vector{Float64}},
-        vec_updates_gradient::Vector{Vector{Float64}}
+# function that interpolates a general univariate quartic polynomial i.e., 
+# f(x)=a₄x⁴+a₃x³+a₂x²+a₁x+a₀ where x∈[-1,1], using Chebyshev interpolation method
+function interpolate_quartic_Chebyshev(
+        vec_value::Vector{Float64}
     )
-    # check the size of the update histories
-    n = min(length(vec_updates_point), length(vec_updates_gradient))
-    if length(vec_updates_point) != length(vec_updates_gradient)
-        println("Warning: mismatch in the sizes of iteration histories!")
+    # check the input length
+    if length(vec_value) != 5
+        error("Invalid input for quartic polynomial interpolation!")
     end
-    if n <= 0
-        return -vec_gradient
+    # get the Chebyshev coefficient vector
+    vec_Chebc = ChebF * vec_value .* 2/5
+    vec_Chebc[1] /= 2.0
+    # convert the coefficients
+    vec_coeff = Polynomial(ChebyshevT(vec_Chebc)).coeffs
+    if length(vec_coeff) < 5
+        vec_coeff = vcat(vec_coeff,zeros(5-length(vec_coeff)))
     end
-    # initialize the temporary gradient vector
-    q = vec_gradient
-    α = zeros(n)
-    ρ = zeros(n)
-    # start the first for-loop
-    for i in n:-1:1
-        ρ[i] = inv(vec_updates_gradient[i]' * vec_updates_point[i])
-        α[i] = vec_updates_point[i]'*q * ρ[i]
-        q -= α[i].*vec_updates_gradient[i]
-    end
-    # conduct an initial approximation of the direction
-    r = (vec_updates_point[n]' * vec_updates_gradient[n]) /
-        (vec_updates_gradient[n]' * vec_updates_gradient[n]) .* q
-    # start the second for-loop
-    for i in 1:n
-        β = ρ[i] * (vec_updates_gradient[i]' * r)
-        r += vec_updates_point[i] .* (α[i]-β)
-    end
-    return -r
+    return vec_coeff
 end
 
