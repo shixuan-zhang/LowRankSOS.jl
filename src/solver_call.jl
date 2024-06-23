@@ -63,5 +63,7 @@ function call_NLopt(
         printfmtln("{} The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
                    " "^print_level, val_opt, time_end-time_start, opt.numevals)
     end
-    return sol_opt, val_opt
+    # check whether the solver has converged
+    flag_conv = (status == :SUCCESS)
+    return sol_opt, val_opt, flag_conv
 end
