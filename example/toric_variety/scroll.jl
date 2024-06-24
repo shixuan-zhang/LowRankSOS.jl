@@ -67,14 +67,18 @@ function experiment_scroll(
             time_start = time()
             vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, num_max_eval=dim_linear*100, print_level=1)
             time_end = time()
-            vec_seconds[idx] = time_end-time_start
+            if flag_conv
+                vec_seconds[idx] = time_end-time_start
+            else
+                vec_seconds[idx] = NaN
+            end
             # check the optimal value
             if val_res < LowRankSOS.VAL_TOL
                 vec_success[idx] = 1
-            elseif flag_conv
-                vec_success[idx] = -1
             else
-                vec_seconds[idx] = NaN
+                if flag_conv
+                    vec_success[idx] = -1
+                end
                 # check the optimality conditions
                 vec_sos = get_sos(vec_sol, coord_ring)
                 mat_Jac = build_Jac_mat(vec_sol, coord_ring)
@@ -86,7 +90,7 @@ function experiment_scroll(
         end
         println()
         println("Global optima are found in ", sum(vec_success), " out of ", num_rep, " experiment runs.")
-        println("The average wall clock time for test runs is ", sum(vec_seconds)/num_rep, " seconds.")
+        println("The average wall clock time for test runs is ", mean(filter(!isnan, vec_seconds)), " seconds.")
         # return the number of successful runs and the average time for batch experiments
         return count(x->x>0, vec_success), count(x->x<0, vec_success), mean(filter(!isnan, vec_seconds))
     end
@@ -99,30 +103,36 @@ function batch_experiment_scroll(
     )
     num_test = length(set_vec_deg)
     # prepare the output columns
+    NAME = String[]
     SUCC = Int[]
     FAIL = Int[]
     TIME = Float64[]
     # start the main tests
     for idx_test in 1:num_test
+        # create the name tag from the heights
+        push!(NAME, join(set_vec_deg[idx_test], "-"))
+        # execute the experiment
         num_succ, num_fail, mean_time = experiment_scroll(set_vec_deg[idx_test], num_rep=num_rep)
-        append!(SUCC, num_succ)
-        append!(FAIL, num_fail)
-        append!(TIME, mean_time)
+        push!(SUCC, num_succ)
+        push!(FAIL, num_fail)
+        push!(TIME, mean_time)
+        result = DataFrame(:NAME => NAME, :SUCC => SUCC, :FAIL => FAIL, :TIME => TIME)
+        CSV.write(str_file*".csv", result)
     end
-    result = DataFrame(:SUCC => SUCC, :FAIL => FAIL, :TIME => TIME)
-    CSV.write(str_file*".csv", result)
 end
 
 # conduct the experiments
 #experiment_scroll([5,10,15], num_rep=1000)
 #experiment_scroll([3,4,5])
-batch_experiment_scroll([[5,10],
-                         [10,20],
-                         [20,40],
-                         [40,80],
-                         [8,9,10],
-                         [7,8,9,10],
-                         [6,7,8,9,10]
+batch_experiment_scroll([[1,2],
+                         [2,4],
+                         [4,8],
+                         [8,16],
+                         [16,32],
+                         [32,64],
+                         [1,2,3],
+                         [1,2,3,4],
+                         [1,2,3,4,5]
                         ],
                         str_file = ARGS[1]
                        )
