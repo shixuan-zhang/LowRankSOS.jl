@@ -58,6 +58,7 @@ function experiment_scroll(
         # record whether each experiment run achieves global minimum 0
         vec_success = zeros(Int,num_rep)
         vec_seconds = zeros(num_rep)
+        vec_residue = zeros(num_rep)
         for idx in 1:num_rep
             println("\n" * "="^80)
             # choose randomly a target
@@ -67,18 +68,15 @@ function experiment_scroll(
             time_start = time()
             vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, num_max_eval=dim_linear*100, print_level=1)
             time_end = time()
-            if flag_conv
+            # check the optimal value
+            if val_res < LowRankSOS.VAL_TOL * max(1.0, norm(target_sos))
+                vec_success[idx] = 1
                 vec_seconds[idx] = time_end-time_start
             else
                 vec_seconds[idx] = NaN
-            end
-            # check the optimal value
-            if val_res < LowRankSOS.VAL_TOL
-                vec_success[idx] = 1
-            else
                 if flag_conv
                     vec_success[idx] = -1
-                end
+                    vec_residue[idx] = val_res / max(1.0, norm(target_sos))
                 # check the optimality conditions
                 vec_sos = get_sos(vec_sol, coord_ring)
                 mat_Jac = build_Jac_mat(vec_sol, coord_ring)
@@ -86,13 +84,14 @@ function experiment_scroll(
                 mat_Hess = build_Hess_mat(num_square, vec_sol, target_sos, coord_ring)
                 printfmtln("Local min encountered with grad norm = {:<10.4e} and the min Hessian eigenval = {:<10.4e}",
                            norm(vec_grad), minimum(eigen(mat_Hess).values))
+                end
             end
         end
         println()
         println("Global optima are found in ", sum(vec_success), " out of ", num_rep, " experiment runs.")
         println("The average wall clock time for test runs is ", mean(filter(!isnan, vec_seconds)), " seconds.")
         # return the number of successful runs and the average time for batch experiments
-        return count(x->x>0, vec_success), count(x->x<0, vec_success), mean(filter(!isnan, vec_seconds))
+        return count(x->x>0, vec_success), count(x->x<0, vec_success), mean(filter(!isnan, vec_seconds)), maximum(vec_residue)
     end
 end
 
@@ -107,32 +106,40 @@ function batch_experiment_scroll(
     SUCC = Int[]
     FAIL = Int[]
     TIME = Float64[]
+    DIST = Float64[]
     # start the main tests
     for idx_test in 1:num_test
         # create the name tag from the heights
         push!(NAME, join(set_vec_deg[idx_test], "-"))
         # execute the experiment
-        num_succ, num_fail, mean_time = experiment_scroll(set_vec_deg[idx_test], num_rep=num_rep)
+        num_succ, num_fail, mean_time, max_dist = experiment_scroll(set_vec_deg[idx_test], num_rep=num_rep)
         push!(SUCC, num_succ)
         push!(FAIL, num_fail)
         push!(TIME, mean_time)
-        result = DataFrame(:NAME => NAME, :SUCC => SUCC, :FAIL => FAIL, :TIME => TIME)
+        push!(DIST, max_dist)
+        # write to the output file
+        result = DataFrame(:NAME => NAME, :SUCC => SUCC, :TIME => TIME, :FAIL => FAIL, :DIST => DIST)
         CSV.write(str_file*".csv", result)
+        println("\n\n\n")
     end
 end
 
 # conduct the experiments
 #experiment_scroll([5,10,15], num_rep=1000)
 #experiment_scroll([3,4,5])
-batch_experiment_scroll([[1,2],
-                         [2,4],
-                         [4,8],
-                         [8,16],
-                         [16,32],
-                         [32,64],
-                         [1,2,3],
-                         [1,2,3,4],
-                         [1,2,3,4,5]
+batch_experiment_scroll([[5,10],
+                         [10,15],
+                         [15,20],
+                         [30,40],
+                         [50,60],
+                         [70,80],
+                         [5,10,15],
+                         [10,20,30],
+                         [20,30,40],
+                         [5,10,15,20],
+                         [10,15,20,25],
+                         [15,20,25,30],
+                         [5,10,15,20,25]
                         ],
                         str_file = ARGS[1]
                        )

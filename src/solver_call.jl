@@ -55,15 +55,20 @@ function call_NLopt(
     opt.maxtime = num_max_time
     # call the solver and measure the total time
     time_start = time()
-    (val_opt,sol_opt,status) = optimize(opt, tuple_linear_forms)
-    time_end = time()
-    # check the solution summary
-    if print_level >= 0
-        println(" "^print_level * "The NLopt l-BFGS solver terminates with status: ", status)
-        printfmtln("{} The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
-                   " "^print_level, val_opt, time_end-time_start, opt.numevals)
+    try 
+        (val_opt,sol_opt,status) = optimize(opt, tuple_linear_forms)
+        time_end = time()
+        # check the solution summary
+        if print_level >= 0
+            println(" "^print_level * "The NLopt l-BFGS solver terminates with status: ", status)
+            printfmtln("{} The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
+                       " "^print_level, val_opt, time_end-time_start, opt.numevals)
+        end
+        # check whether the solver has converged
+        flag_conv = (status == :SUCCESS)
+        return sol_opt, val_opt, flag_conv
+    catch err
+        println(" "^print_level * "The NLopt solver returns error: " * err)
+        return fill(NaN, num_square*coord_ring.dim1), NaN, false
     end
-    # check whether the solver has converged
-    flag_conv = (status == :SUCCESS)
-    return sol_opt, val_opt, flag_conv
 end
