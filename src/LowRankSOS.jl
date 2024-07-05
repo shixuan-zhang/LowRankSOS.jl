@@ -23,7 +23,7 @@ const VAL_TOL = 1.0e-8
 const VAL_PEN = 1.0e4
 const NUM_MAX_ITER = 2000 # default for local (line search) descent methods
 const NUM_MEM_SIZE = 20   # default for limited-memory quasi-Newton methods
-const NUM_MAX_MOVE = 1000 # default for direct path search methods
+const NUM_MAX_MOVE = 10   # default for direct path search methods
 
 # include the source files of basic types and methods
 include("types.jl")

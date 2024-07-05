@@ -6,7 +6,8 @@ using Statistics, DataFrames, CSV
 # function that conducts experiments of the low-rank SOS method on a rational normal scroll
 function experiment_scroll(
         vec_deg::Vector{Int};
-        num_rep::Int = 1
+        num_rep::Int = 1,
+        REL_MAX_ITER::Int = 100
     )
     # get the dimension of the scroll
     dim = length(vec_deg)
@@ -53,8 +54,6 @@ function experiment_scroll(
     elseif num_rep > 1
         # print the experiment setup information
         println("Start experiments on a rational normal scroll with dimension = ", dim, ", and prism heights = ", vec_deg, "\n\n")
-        # check the dimension of the linear forms
-        dim_linear = sum(vec_deg) + length(vec_deg)
         # record whether each experiment run achieves global minimum 0
         vec_success = zeros(Int,num_rep)
         vec_seconds = zeros(num_rep)
@@ -66,7 +65,7 @@ function experiment_scroll(
             target_sos = get_sos(tuple_random, coord_ring)
             # solve the problem and record the time
             time_start = time()
-            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, num_max_eval=dim_linear*100, print_level=1)
+            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, num_max_eval=REL_MAX_ITER*coord_ring.dim1, print_level=1)
             time_end = time()
             # check the optimal value
             if val_res < LowRankSOS.VAL_TOL * max(1.0, norm(target_sos))
@@ -77,18 +76,18 @@ function experiment_scroll(
                 if flag_conv
                     vec_success[idx] = -1
                     vec_residue[idx] = val_res / max(1.0, norm(target_sos))
-                # check the optimality conditions
-                vec_sos = get_sos(vec_sol, coord_ring)
-                mat_Jac = build_Jac_mat(vec_sol, coord_ring)
-                vec_grad = 2*mat_Jac'*(vec_sos-target_sos)
-                mat_Hess = build_Hess_mat(num_square, vec_sol, target_sos, coord_ring)
-                printfmtln("Local min encountered with grad norm = {:<10.4e} and the min Hessian eigenval = {:<10.4e}",
-                           norm(vec_grad), minimum(eigen(mat_Hess).values))
+                    # check the optimality conditions
+                    vec_sos = get_sos(vec_sol, coord_ring)
+                    mat_Jac = build_Jac_mat(vec_sol, coord_ring)
+                    vec_grad = 2*mat_Jac'*(vec_sos-target_sos)
+                    mat_Hess = build_Hess_mat(num_square, vec_sol, target_sos, coord_ring)
+                    printfmtln("Local min encountered with grad norm = {:<10.4e} and the min Hessian eigenval = {:<10.4e}",
+                               norm(vec_grad), minimum(eigen(mat_Hess).values))
                 end
             end
         end
         println()
-        println("Global optima are found in ", sum(vec_success), " out of ", num_rep, " experiment runs.")
+        println("Global optima are found in ", count(x->x>0, vec_success), " out of ", num_rep, " experiment runs.")
         println("The average wall clock time for test runs is ", mean(filter(!isnan, vec_seconds)), " seconds.")
         # return the number of successful runs and the average time for batch experiments
         return count(x->x>0, vec_success), count(x->x<0, vec_success), mean(filter(!isnan, vec_seconds)), maximum(vec_residue)

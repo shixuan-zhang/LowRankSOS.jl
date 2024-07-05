@@ -68,7 +68,7 @@ function call_NLopt(
         flag_conv = (status == :SUCCESS)
         return sol_opt, val_opt, flag_conv
     catch err
-        println(" "^print_level * "The NLopt solver returns error: " * err)
+        println(" "^print_level * "The NLopt solver returns error: " * err.msg)
         return fill(NaN, num_square*coord_ring.dim1), NaN, false
     end
 end
