@@ -8,7 +8,7 @@ using Formatting
 
 # export types and methods for application programming interface
 export CoordinateRing2
-export idx_sym, get_sos, build_Jac_mat, build_Hess_mat
+export idx_sym, get_sos, build_Jac_mat, build_Hess_mat, embed_tuple
 export solve_gradient_descent, solve_BFGS_descent, solve_lBFGS_descent
 export solve_CG_descent, solve_CG_push_descent
 export move_direct_path

@@ -122,7 +122,31 @@ function build_Hess_mat(
 end
 
 
-
+# function that embeds the tuple into a larger tuple of linear forms
+function embed_tuple(
+        tuple::Vector{Float64},
+        old_num_sq::Int,
+        new_num_sq::Int;
+        random::Bool = false
+    )
+    # check the input numbers of squares
+    if old_num_sq > new_num_sq
+        error("Reducing the number of squares is not supported!")
+    end
+    # get the dimension of linear forms
+    dim, rem = divrem(length(tuple), old_num_sq)
+    if rem != 0
+        error("Invalid number of squares as input!")
+    end
+    # embed the tuple by filling zeros
+    L = [tuple; zeros((new_num_sq-old_num_sq)*dim)]
+    if random
+        Q,_ = qr(rand(new_num_sq,new_num_sq))
+        M = reshape(L, dim, new_num_sq)
+        L = vec(M*Q)
+    end
+    return L
+end
 
 
 
