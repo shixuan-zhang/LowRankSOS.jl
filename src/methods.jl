@@ -148,6 +148,21 @@ function embed_tuple(
     return L
 end
 
+# function that calculates an upper (Barvinok-Pataki) bound on the
+# Pythagoras number, which is used as the number of squares
+function get_BP_bound(
+    coord_ring::CoordinateRing2
+    )
+    # get the dimension of the quadrics
+    dim2 = coord_ring.dim2
+    # pick the smallest integer k such that (k+1) choose 2 ≥ dim of quadrics - 1
+    k = floor(Int,sqrt(2*dim2 - 1))
+    if k*(k+1) < 2*dim2 - 1
+        k += 1
+    end
+    return k
+end
+
 
 
 

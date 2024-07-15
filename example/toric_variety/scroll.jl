@@ -3,6 +3,21 @@ include("./toric.jl")
 # use packages for experiments and result collection
 using Statistics, DataFrames, CSV
 
+# function that builds the coordinate ring of a rational normal scroll
+function build_ring_scroll(
+        vec_height::Vector{Int}
+    )
+    # get the dimension of the scroll
+    dim = length(vec_height)
+    # define the lattice polytope vertex matrix
+    # where the vertices are from a simplex or certain heights built on it
+    mat_simplex = vcat(zeros(Int,dim-1)', diagm(ones(Int,dim-1)))
+    mat_vertices = vcat(hcat(mat_simplex,zeros(Int,dim)),hcat(mat_simplex,vec_deg))
+    # get the coordinate ring information
+    coord_ring = build_ring_from_polytope(mat_vertices)
+    return coord_ring
+end
+
 # function that conducts experiments of the low-rank SOS method on a rational normal scroll
 function experiment_scroll(
         vec_deg::Vector{Int};
@@ -122,23 +137,3 @@ function batch_experiment_scroll(
         println("\n\n\n")
     end
 end
-
-# conduct the experiments
-#experiment_scroll([5,10,15], num_rep=1000)
-#experiment_scroll([3,4,5])
-batch_experiment_scroll([[5,10],
-                         [10,15],
-                         [15,20],
-                         [30,40],
-                         [50,60],
-                         [70,80],
-                         [5,10,15],
-                         [10,20,30],
-                         [20,30,40],
-                         [5,10,15,20],
-                         [10,15,20,25],
-                         [15,20,25,30],
-                         [5,10,15,20,25]
-                        ],
-                        str_file = ARGS[1]
-                       )

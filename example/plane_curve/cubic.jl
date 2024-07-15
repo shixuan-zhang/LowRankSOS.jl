@@ -5,13 +5,35 @@ using Statistics, DataFrames, CSV
 
 const MAX_RAND_COEFF = 7
 
+# function that generates a random plane cubic curve
+# re-embedded with a given degree
+function generate_plane_cubic(
+        deg_target::Int
+    )
+    # check if the target degree is at least 1
+    deg_target = max(deg_target,1)
+    # generate the coefficients randomly and check smoothness
+    curve_coeff::Dict{Vector{Int},T} = Dict{Vector{Int},Int}()
+    while true
+        # loop over all monomials under degree 3
+        for i=0:3,j=0:(3-i)
+            curve_coeff[[i,j]] = rand(-MAX_RAND_COEFF:MAX_RAND_COEFF)
+        end
+        # get the coordinate ring information
+        coord_ring = build_ring_from_plane_curve(curve_coeff,deg_target,print_level=0)
+        # check smoothness before re-generation
+        if coord_ring.dim1 > 0
+            return curve_coeff, coord_ring
+        end
+    end
+end
+
 # function that conducts experiments of the low-rank SOS method on the cubic curve
 function experiment_cubic_curve(
         curve_coeff::Dict{Vector{Int},T} = Dict{Vector{Int},Int}();
         deg_target::Int = 2,
         num_rep::Int = 1,
         num_square::Int = 3,
-        val_tol::Float64 = 1.0e-4,
         REL_MAX_ITER::Int = 100
     ) where T <: Union{Int,Rational{Int}}
     # randomly specify the curve if the coefficients are not supplied
@@ -103,7 +125,6 @@ function batch_experiment_cubic(
         str_file::String = "result_cubic_curve",
         num_rep::Int = 1000
     )
-    num_test = length(set_deg)*num_curve
     # prepare the output columns
     NAME = String[]
     SUCC = Int[]
@@ -144,8 +165,3 @@ function batch_experiment_cubic(
         end
     end
 end
-
-#experiment_cubic_curve(deg_target=20,num_rep=1000)
-batch_experiment_cubic([10,20,30,40,50],
-                       str_file = ARGS[1]
-                      )

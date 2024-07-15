@@ -39,7 +39,8 @@ function build_ring_from_plane_curve(
     # check whether the curve is smooth
     if check_smooth
         if dimension(std(jacobian_ideal(f))) > 0
-            error("ERROR: the plane curve is singular!")
+            println("The input cubic curve is singular and regeneration is required...")
+            return CoordinateRing2(0,0,SparseVector{Rational{Int},Int}[])
         end
     end
     # get the vector space bases of the degree-d part of the coordinate ring

@@ -3,6 +3,18 @@ include("./toric.jl")
 # use packages for experiments and result collection
 using Statistics, DataFrames, CSV
 
+# function that builds the coordinate ring of a Veronese variety
+function build_ring_Veronese(
+        dim::Int,
+        deg::Int
+    )
+    # define the lattice polytope vertex matrix
+    mat_vertices = vcat(diagm(ones(Int,dim).*deg),zeros(Int,dim)')
+    # get the coordinate ring information
+    coord_ring = build_ring_from_polytope(mat_vertices)
+    return coord_ring
+end
+
 # function that conducts experiments of the low-rank SOS method on the Veronese variety
 function experiment_Veronese(
         deg::Int,
@@ -16,7 +28,7 @@ function experiment_Veronese(
     # get the coordinate ring information
     coord_ring = build_ring_from_polytope(mat_vertices)
     # set the number of squares (that satisfies the Barvinok-Pataki bound)
-    num_BP_bound = floor(Int, sqrt(2*(binomial(2*deg+dim,2*deg)-1)))
+    num_BP_bound = ceil(Int, sqrt(2*(binomial(2*deg+dim,2*deg)-1)))
     if length(mult_num_sq) == 0
         mult_num_sq = [1.0]
     end
@@ -157,12 +169,3 @@ function batch_experiment_Veronese(
     end
 end
 
-# conduct the experiments
-#experiment_Veronese(2,10,num_rep=1000)
-batch_experiment_Veronese([(2,3),(2,4),(2,5),(2,6),(2,7),(2,8),(2,9),(2,10),
-                           (3,2),(3,3),(3,4),(3,5),(3,6),
-                           (4,2),(4,3),(4,4),(4,5),
-                           (5,2)],
-                          [1.0,1.5,2.0],
-                          str_file = ARGS[1]
-                         )
