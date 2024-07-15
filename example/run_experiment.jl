@@ -1,3 +1,5 @@
+include("../src/LowRankSOS.jl")
+using .LowRankSOS
 # import the constructions of the example varieties
 include("toric_variety/Veronese.jl")
 include("toric_variety/scroll.jl")
@@ -8,6 +10,7 @@ using Statistics, DataFrames, CSV
 # set the experiment parameters
 const VAL_TOL = 1.0e-8
 const NUM_REPEAT = 100
+const REL_MAX_ITER = 100
 const SCROLL_HEIGHTS = [[5,10],[10,15],[15,20],
                         [30,40],[50,60],[70,80],
                         [5,10,15],[10,20,30],[20,30,40],
@@ -91,7 +94,7 @@ function run_experiments()
         # start the main experiments
         num_experiment = length(EXAMPLE)
         vec_rank = Int[]
-        coord_ring = CoordinateRing2()
+        coord_ring = CoordinateRing2(0,0,SparseVector{Rational{Int},Int}[])
         curve_coeff = Dict{Vector{Int},Int}() # for cubic curves only
         str_curve = ""
         for idx = 1:num_experiment
@@ -122,20 +125,20 @@ function run_experiments()
                     coord_ring = build_ring_from_plane_curve(curve_coeff, deg, check_smooth=false)
                 end
                 # create the name tag from the cubic coefficients and target degree
-                append!(NAME, str_curve*":"*string(deg))
+                append!(NAME, [str_curve*":"*string(deg) for _ in NUM_SQ_ADD])
                 vec_rank = 3 .+ NUM_SQ_ADD
                 append!(RANK, vec_rank)
             elseif EXAMPLE[idx] == "Veronese"
                 dim, deg = VERONESE_DIM_DEG[IDX2PAR[idx]]
                 # create the name tag from the heights
                 append!(NAME, ["Veronese:"*join([dim, deg], "-") for _ in NUM_SQ_MULT])
-                coord_ring = build_ring_scroll(vec_height)
+                coord_ring = build_ring_Veronese(dim, deg)
                 num_BP_bound = get_BP_bound(coord_ring)
                 vec_rank = ceil.(Int, num_BP_bound .* NUM_SQ_MULT)
                 append!(RANK, vec_rank)
             end
             # execute the experiment
-            succ, fail, time, dist = exec_multiple(coord_ring, vec_rank, num_rep=NUM_REPEAT)
+            succ, fail, time, dist = exec_multiple(coord_ring, vec_rank)
             append!(SUCC, succ)
             append!(FAIL, fail)
             append!(TIME, time)

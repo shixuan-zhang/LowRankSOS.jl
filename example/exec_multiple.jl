@@ -7,9 +7,9 @@ function exec_multiple(
     result_seconds = Dict{Int,Vector{Float64}}()
     result_residue = Dict{Int,Vector{Float64}}()
     for num in set_num_sq
-        result_success[num] = zeros(Int,num_rep)
-        result_seconds[num] = zeros(num_rep)
-        result_residue[num] = zeros(num_rep)
+        result_success[num] = zeros(Int,NUM_REPEAT)
+        result_seconds[num] = zeros(NUM_REPEAT)
+        result_residue[num] = zeros(NUM_REPEAT)
     end
     for idx in 1:NUM_REPEAT
         println("\n" * "="^80)
@@ -27,7 +27,7 @@ function exec_multiple(
             tuple_start = embed_tuple(tuple_min_sq, num_sq_min, num_square, random=true)
             # solve the problem and record the time
             time_start = time()
-            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, print_level=1)
+            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, print_level=1) 
             time_end = time()
             # check the optimal value
             if val_res < VAL_TOL * max(1.0, norm(target_sos))
@@ -63,7 +63,7 @@ function exec_multiple(
     end
     for num in set_num_sq
         println("\nResult summary for ", num, " squares:")
-        println("Global optima are found in ", count(x->x>0, result_success[num]), " out of ", num_rep, " experiment runs.")
+        println("Global optima are found in ", count(x->x>0, result_success[num]), " out of ", NUM_REPEAT, " experiment runs.")
         println("Restricted-path method is used in ", count(x->x>1, result_success[num]), " experiment runs.")
         println("The average wall clock time for test runs is ", mean(filter(!isnan, result_seconds[num])), " seconds.")
     end

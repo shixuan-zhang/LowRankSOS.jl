@@ -2,9 +2,6 @@ using Singular
 using LinearAlgebra, SparseArrays
 using Formatting
 
-include("../../src/LowRankSOS.jl")
-using .LowRankSOS
-
 # function that sets up the coordinate ring (degree d and 2d) information
 # from a plane curve of degree e ≤ d, where d is the degree of the summands
 # the input dictionary has keys of monomial exponents (of x₁ and x₂), 
@@ -74,6 +71,9 @@ function build_ring_from_plane_curve(
             end
         end
         prod[LowRankSOS.idx_sym(i,j)] = sparsevec(idx,val,dim2)
+    end
+    if print_level > 0
+        println(" "^print_level * "The multiplication table is given by\n", prod)
     end
     return LowRankSOS.CoordinateRing2(dim1,dim2,prod)
 end
