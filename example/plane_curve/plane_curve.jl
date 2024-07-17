@@ -1,11 +1,10 @@
 using Singular
 using LinearAlgebra, SparseArrays
-using Formatting
 
 # function that sets up the coordinate ring (degree d and 2d) information
 # from a plane curve of degree e ≤ d, where d is the degree of the summands
 # the input dictionary has keys of monomial exponents (of x₁ and x₂), 
-# which will be homogenized by x₀, and the values are their coefficients
+# which will be homogenized by x₀, and the values are monomial term coefficients
 function build_ring_from_plane_curve(
         dict_coeff::Dict{Vector{Int},T},
         deg_target::Int;
@@ -19,7 +18,7 @@ function build_ring_from_plane_curve(
     # check the total degree of the input polynomial
     deg = maximum(collect(sum.(keys(dict_coeff))))
     if deg > 2*deg_target
-        error("ERROR: the degree of target quadrics is smaller than the curve!")
+        error("ERROR: the target degree is smaller than the curve!")
     end
     # declare the polynomial ring in Singular
     R,(x₀,x₁,x₂) = PolynomialRing(QQ,["x0","x1","x2"])

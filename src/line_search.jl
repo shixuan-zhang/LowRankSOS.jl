@@ -507,7 +507,7 @@ function solve_lBFGS_descent(
         # get gradient vector
         vec_grad_new = 2*transpose(build_diff_map(vec_point_new,coord_ring))*(vec_sos_new-vec_target_quadric)
         if any(isnan.(vec_grad_new))
-            error("ERROR: the gradient contains NaN!")
+            return fill(NaN, num_square*coord_ring.dim1), NaN, false
         end
         # print the algorithm progress
         val_obj = norm(vec_sos_new-vec_target_quadric,2)^2
@@ -543,7 +543,7 @@ function solve_lBFGS_descent(
         end
         printfmtln("{} The wall clock time is {:<6.2f} seconds.", " "^print_level, time()-time_start)
     end
-    return vec_point_new, val_obj
+    return vec_point_new, val_obj, flag_converge
 end
 
 
@@ -637,7 +637,7 @@ function solve_CG_descent(
         # get gradient vector
         vec_grad_new = 2*mat_Jac'*(vec_sos-vec_target_quadric)
         if any(isnan.(vec_grad_new))
-            error("ERROR: the gradient contains NaN!")
+            return fill(NaN, num_square*coord_ring.dim1), NaN, false
         end
         # print the algorithm progress
         if print_level > 0
@@ -682,7 +682,7 @@ function solve_CG_descent(
         end
         printfmtln("{} The wall clock time is {:<6.2f} seconds.", " "^print_level, time()-time_start)
     end
-    return tuple_linear_forms, val_obj
+    return tuple_linear_forms, val_obj, flag_converge
 end
 
 
@@ -799,7 +799,7 @@ function solve_CG_push_descent(
         # get gradient vector
         vec_grad = 2*mat_Jac'*(vec_sos-vec_target_quadric)
         if any(isnan.(vec_grad))
-            error("ERROR: the gradient contains NaN!")
+            return fill(NaN, num_square*coord_ring.dim1), NaN, false
         end
         # print the algorithm progress
         if print_level > 0
@@ -831,5 +831,5 @@ function solve_CG_push_descent(
         printfmtln("{} The wall clock time is {:<6.2f} seconds.", 
                    " "^print_level, time() - time_start)
     end
-    return tuple_linear_forms, val_obj
+    return tuple_linear_forms, val_obj, flag_converge
 end

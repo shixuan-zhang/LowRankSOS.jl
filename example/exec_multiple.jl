@@ -7,15 +7,17 @@ function exec_multiple(
     result_seconds = Dict{Int,Vector{Float64}}()
     result_residue = Dict{Int,Vector{Float64}}()
     for num in set_num_sq
-        result_success[num] = zeros(Int,NUM_REPEAT)
-        result_seconds[num] = zeros(NUM_REPEAT)
-        result_residue[num] = zeros(NUM_REPEAT)
+        result_success[num] = zeros(Int,num_repeat)
+        result_seconds[num] = zeros(num_repeat)
+        result_residue[num] = zeros(num_repeat)
     end
-    for idx in 1:NUM_REPEAT
+    for idx in 1:num_repeat
         println("\n" * "="^80)
         # choose randomly a target
         tuple_random = rand(coord_ring.dim1*coord_ring.dim1)
         target_sos = get_sos(tuple_random, coord_ring)
+        # rescale the target to avoid numerical issues
+        target_sos ./= norm(target_sos)
         # find the minimum number of squares
         num_sq_min = minimum(set_num_sq)
         # choose randomly a starting point
@@ -25,6 +27,8 @@ function exec_multiple(
             println("Use ", num_square, " squares for the local optimization method...")
             # embed the starting tuple of linear forms
             tuple_start = embed_tuple(tuple_min_sq, num_sq_min, num_square, random=true)
+            # rescale the starting point to avoid numerical issues
+            tuple_start ./= norm(tuple_start)
             # solve the problem and record the time
             time_start = time()
             vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, print_level=1) 
@@ -63,7 +67,7 @@ function exec_multiple(
     end
     for num in set_num_sq
         println("\nResult summary for ", num, " squares:")
-        println("Global optima are found in ", count(x->x>0, result_success[num]), " out of ", NUM_REPEAT, " experiment runs.")
+        println("Global optima are found in ", count(x->x>0, result_success[num]), " out of ", num_repeat, " experiment runs.")
         println("Restricted-path method is used in ", count(x->x>1, result_success[num]), " experiment runs.")
         println("The average wall clock time for test runs is ", mean(filter(!isnan, result_seconds[num])), " seconds.")
     end

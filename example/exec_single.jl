@@ -8,6 +8,9 @@ function exec_single(
     println("Run different local optimization methods with ", num_square, " squares...")
     # choose randomly a starting point
     tuple_start = rand(num_square*coord_ring.dim1)
+    # rescale the target and the starting point to avoid numerical issues
+    target_sos ./= norm(target_sos)
+    tuple_start ./= norm(tuple_start)
     # run the line search method
     solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="backtracking")
     solve_gradient_descent(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1, str_select_step="interpolation")
