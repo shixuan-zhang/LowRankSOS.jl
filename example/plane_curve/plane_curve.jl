@@ -21,7 +21,7 @@ function build_ring_from_plane_curve(
         error("ERROR: the target degree is smaller than the curve!")
     end
     # declare the polynomial ring in Singular
-    R,(x₀,x₁,x₂) = PolynomialRing(QQ,["x0","x1","x2"])
+    R,(x₀,x₁,x₂) = polynomial_ring(QQ,["x0","x1","x2"])
     # define the curve and the ideal
     f = 0
     for (a, c) in dict_coeff

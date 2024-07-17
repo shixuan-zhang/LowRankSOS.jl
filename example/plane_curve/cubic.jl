@@ -18,7 +18,7 @@ function generate_plane_cubic(
             curve_coeff[[i,j]] = rand(-MAX_RAND_COEFF:MAX_RAND_COEFF)
         end
         # get the coordinate ring information
-        coord_ring = build_ring_from_plane_curve(curve_coeff,deg_target,print_level=1)
+        coord_ring = build_ring_from_plane_curve(curve_coeff,deg_target,print_level=0)
         # check smoothness before re-generation
         if coord_ring.dim1 > 0
             return curve_coeff, coord_ring
