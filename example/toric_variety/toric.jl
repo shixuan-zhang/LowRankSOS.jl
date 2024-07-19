@@ -1,14 +1,9 @@
 using Polymake 
 using LinearAlgebra, SparseArrays
-using Formatting
-
-include("../../src/LowRankSOS.jl")
-using .LowRankSOS
 
 # function that sets up the coordinate ring information from vertices of a lattice polytope
 function build_ring_from_polytope(
-        mat_vertices::Matrix{Int};
-        check_smooth::Bool = true
+        mat_vertices::Matrix{Int}
     )
     # get the size of the input matrix
     num_vertex, dim_lattice = size(mat_vertices)
