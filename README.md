@@ -10,5 +10,5 @@ Experiments can be run through the `run_experiment.jl` script under `example/`, 
 
 Before official release, the current recommended practice of running the experiments from command line interface is the following, assuming the working directory contains `LowRankSOS.jl`.
 ```
-julia --project=LowRankSOS.jl/. LowRankSOS.jl/example/run_experiment.jl all
+julia --project=LowRankSOS.jl/. LowRankSOS.jl/example/run_experiment.jl [example name] [number of repetition] [output file name]
 ```
