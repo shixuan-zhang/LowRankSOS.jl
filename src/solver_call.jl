@@ -56,19 +56,91 @@ function call_NLopt(
     # call the solver and measure the total time
     time_start = time()
     try 
-        (val_opt,sol_opt,status) = optimize(opt, tuple_linear_forms)
+        (val_opt,sol_opt,status) = NLopt.optimize(opt, tuple_linear_forms)
         time_end = time()
         # check the solution summary
         if print_level >= 0
             println(" "^print_level * "The NLopt l-BFGS solver terminates with status: ", status)
-            printfmtln("{} The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).", 
+            printfmtln("{} The NLopt returns objective value = {:<10.4e} and uses {:<5.2f} seconds (with {:<5d} evaluations).\n", 
                        " "^print_level, val_opt, time_end-time_start, opt.numevals)
         end
         # check whether the solver has converged
         flag_conv = (status == :SUCCESS)
         return sol_opt, val_opt, flag_conv
     catch err
-        println(" "^print_level * "The NLopt solver returns error: " * err.msg)
+        println(" "^print_level * "The NLopt solver returns error: " * err.msg, "\n")
         return fill(NaN, num_square*coord_ring.dim1), NaN, false
+    end
+end
+
+# provide methods of calling external solvers (e.g. CSDP) 
+# to solve the full-rank formulation for comparison
+
+using JuMP, CSDP
+
+
+# function that calls CSDP (interior-point) to solve the full-rank certification problem
+function call_CSDP(
+        vec_target_quadric::Vector{Float64},
+        coord_ring::CoordinateRing2;
+        val_threshold::Float64 = VAL_TOL,
+        print_level::Int = 0
+    )
+    # alias the target quadric vector
+    F = vec_target_quadric
+    # define a JuMP model for SDP feasibility modeling
+    M = Model(CSDP.Optimizer)
+    set_attribute(M, "printlevel", print_level)
+    #set_attribute(M, "axtol", val_threshold)
+    # define a PSD Gram matrix
+    G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD)
+    # prepare the linear constraints for each coordinate in R₂
+    L = AffExpr[]
+    for k in 1:coord_ring.dim2
+        push!(L, 0)
+    end
+    for i in 1:coord_ring.dim1
+        for j in i:coord_ring.dim1
+            # get the symmetric index of the Gram matrix
+            m = idx_sym(i,j)
+            # set the multiplicative factor for off-diagonals
+            c = (i != j) ? 2 : 1
+            # loop over the quadratic monomials to fill in the nonzero entries in the column
+            for n in findnz(coord_ring.prod[m])[1]
+                L[n] += coord_ring.prod[m][n]*G[i,j]*c
+            end
+        end
+    end
+    @constraint(M, [k=1:coord_ring.dim2], L[k] == F[k])
+    # set the trivial objective for feasibility only
+    @objective(M, Min, sum(G[i,i] for i in 1:coord_ring.dim1))
+    # print the model for correctness checking
+    if print_level > 0
+        println(" "^print_level * "The CSDP model information:")
+        show(M)
+        println()
+    end
+    # call the solver and measure the total time
+    time_start = time()
+    try 
+        JuMP.optimize!(M)
+        time_end = time()
+        # check the solution summary
+        if print_level >= 0
+            println(" "^print_level * "The CSDP interior-point solver terminates with status: ", primal_status(M))
+            printfmtln("{} The CSDP solver uses {:<5.2f} seconds.", 
+                       " "^print_level, time_end-time_start)
+        end
+        if is_solved_and_feasible(M)
+            G_sol = value.(G)
+            println(" "^print_level * "The solution has rank = ", rank(G_sol, rtol=val_threshold))
+            sol_opt = vec(cholesky(G_sol).L)
+            return sol_opt, 0.0, true
+        else
+            return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
+        end
+    catch err
+        println(" "^print_level * "The CSDP solver returns error: " * err.msg)
+        return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
     end
 end
