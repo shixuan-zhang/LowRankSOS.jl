@@ -6,8 +6,9 @@ include("toric_variety/scroll.jl")
 include("plane_curve/cubic.jl")
 
 # set the experiment parameters
-const SCROLL_HEIGHTS = [2,3]
-const CUBIC_DEGREE = 40
+const VAL_TOL = 1e-2
+const SCROLL_HEIGHTS = [100,200]
+const CUBIC_DEGREE = 2
 const VERONESE_DIM_DEG = (5,6)
 const NUM_SQ_ADD = collect(0:5)
 
@@ -50,12 +51,15 @@ function run_comparisons()
         tuple_start ./= norm(tuple_start)
         # rescale the target and the starting point to avoid numerical issues
         println("Run NLopt L-BFGS method with ", rank, " squares...")
-        call_NLopt(rank, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
+        #call_NLopt(rank, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
+        #println("Run L-BFGS method with ", rank, " squares...")
+        #solve_lBFGS_descent(rank, target_sos, coord_ring, tuple_linear_forms=tuple_start, print_level=1)
+        solve_gradient_descent(rank, target_sos, coord_ring, tuple_linear_forms=tuple_start, val_tol_norm=VAL_TOL, print_level=0)
     end
     println()
     println("Run CSDP interior-point methods with ", coord_ring.dim1, " squares...")
     flush(stdout)
-    call_CSDP(target_sos, coord_ring, print_level=1)
+    call_CSDP(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1)
 end
 
 run_comparisons()

@@ -1,8 +1,9 @@
 function exec_multiple(
         coord_ring::CoordinateRing2,
-        set_num_sq::Vector{Int}
+        set_num_sq::Vector{Int};
+        flag_comp::Bool = false
     )
-    # record whether each experiment run achieves global minimum 0
+    # record the main experiment results
     result_success = Dict{Int,Vector{Int}}()
     result_seconds = Dict{Int,Vector{Float64}}()
     result_residue = Dict{Int,Vector{Float64}}()
@@ -10,6 +11,13 @@ function exec_multiple(
         result_success[num] = zeros(Int,num_repeat)
         result_seconds[num] = zeros(num_repeat)
         result_residue[num] = zeros(num_repeat)
+    end
+    # record the comparison against semidefinite programming
+    compare_time = Float64[]
+    compare_rank = Int[]
+    if flag_comp
+        compare_time = zeros(num_repeat)
+        compare_rank = zeros(Int,num_repeat)
     end
     for idx in 1:num_repeat
         println("\n" * "="^80)
@@ -64,6 +72,22 @@ function exec_multiple(
                 end
             end
         end
+        # compare against the standard semidefinite programming solver
+        if flag_comp
+            flush(stdout)
+            println()
+            println("Run CSDP interior-point methods with ", coord_ring.dim1, " squares...")
+            time_start = time()
+            vec_sol, val_res, flag_conv, sol_rank = call_CSDP(target_sos, coord_ring, print_level=1)
+            time_end = time()
+            if flag_conv
+                compare_time[idx] = time_end - time_start
+                compare_rank[idx] = sol_rank
+            else
+                compare_time[idx] = NaN
+                compare_rank[idx] = -1
+            end
+        end
     end
     for num in set_num_sq
         println("\nResult summary for ", num, " squares:")
@@ -76,5 +100,8 @@ function exec_multiple(
     FAIL = [count(x->x<0, result_success[num]) for num in set_num_sq]
     TIME = [mean(filter(!isnan, result_seconds[num])) for num in set_num_sq]
     DIST = [maximum(result_residue[num]) for num in set_num_sq]
-    return SUCC, FAIL, TIME, DIST
+    SDPT = [mean(compare_time) for num in set_num_sq]
+    SDPR_MIN = [minimum(filter(x->x>0,compare_rank)) for num in set_num_sq]
+    SDPR_MED = [median(filter(x->x>0,compare_rank)) for num in set_num_sq]
+    return SUCC, FAIL, TIME, DIST, SDPT, SDPR_MIN, SDPR_MED
 end

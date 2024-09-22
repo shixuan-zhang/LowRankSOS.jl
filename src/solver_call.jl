@@ -91,9 +91,9 @@ function call_CSDP(
     # define a JuMP model for SDP feasibility modeling
     M = Model(CSDP.Optimizer)
     set_attribute(M, "printlevel", print_level)
-    #set_attribute(M, "axtol", val_threshold)
+    set_attribute(M, "axtol", val_threshold)
     # define a PSD Gram matrix
-    G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD)
+    G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD, base_name="G")
     # prepare the linear constraints for each coordinate in R₂
     L = AffExpr[]
     for k in 1:coord_ring.dim2
@@ -133,9 +133,10 @@ function call_CSDP(
         end
         if is_solved_and_feasible(M)
             G_sol = value.(G)
-            println(" "^print_level * "The solution has rank = ", rank(G_sol, rtol=val_threshold))
+            r = rank(G_sol, rtol=val_threshold)
+            println(" "^print_level * "The solution has rank = ", r)
             sol_opt = vec(cholesky(G_sol).L)
-            return sol_opt, 0.0, true
+            return sol_opt, 0.0, true, r
         else
             return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
         end

@@ -6,6 +6,7 @@ include("toric_variety/scroll.jl")
 include("plane_curve/cubic.jl")
 # import modules for batch test statistics and output
 using Statistics, DataFrames, CSV
+using Formatting
 
 # set the experiment parameters
 const VAL_TOL = 1.0e-8
@@ -91,6 +92,9 @@ function run_experiments()
         FAIL = Int[]
         TIME = Float64[]
         DIST = Float64[]
+        SDPT = Float64[]
+        SDPR_MIN = Int[]
+        SDPR_MED = Int[]
         # start the main experiments
         num_experiment = length(EXAMPLE)
         vec_rank = Int[]
@@ -138,18 +142,24 @@ function run_experiments()
                 append!(RANK, vec_rank)
             end
             # execute the experiment
-            succ, fail, time, dist = exec_multiple(coord_ring, vec_rank)
+            succ, fail, time, dist, sdpt, sdpr_min, sdpr_med = exec_multiple(coord_ring, vec_rank, flag_comp=true)
             append!(SUCC, succ)
             append!(FAIL, fail)
             append!(TIME, time)
             append!(DIST, dist)
+            append!(SDPT, sdpt)
+            append!(SDPR_MIN, sdpr_min)
+            append!(SDPR_MED, ceil.(Int,sdpr_med))
             # update the output file
             result = DataFrame(:NAME => NAME, 
                                :RANK => RANK, 
                                :SUCC => SUCC, 
                                :TIME => TIME, 
                                :FAIL => FAIL, 
-                               :DIST => DIST)
+                               :DIST => DIST,
+                               :SDPT => SDPT,
+                               :SDPR_MIN => SDPR_MIN,
+                               :SDPR_MED => SDPR_MED)
             CSV.write(str_output, result)
             println()
         end
