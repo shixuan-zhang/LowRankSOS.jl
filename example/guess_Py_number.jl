@@ -9,7 +9,7 @@ using Formatting
 const VAL_TOL = 1e-8
 const REL_MAX_ITER = 20
 const flag_resolve = false
-NUM_RUN = 100
+NUM_RUN = 1000
 DEG = 4
 DIM = 2
 

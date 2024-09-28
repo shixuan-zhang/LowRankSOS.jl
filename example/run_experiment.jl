@@ -17,12 +17,15 @@ const SCROLL_HEIGHTS = [[5,10],[10,15],[15,20],
                         [5,10,15],[10,20,30],[20,30,40],
                         [5,10,15,20],[10,15,20,25],
                         [15,20,25,30],[5,10,15,20,25]]
+const SCROLL_HEIGHTS_LARGE = [[100,200],[300,400],[500,600],[700,800],
+                              [200,300,400],[300,400,500]]
 const CUBIC_CURVE_DEG = [10,20,30,40,50]
+const CUBIC_CURVE_DEG_LARGE = [100,200,300,400,500]
 const VERONESE_DIM_DEG = [(4,2),(6,2),(8,2),(10,2),
                           (3,3),(4,3),(5,3),
                           (2,4),(3,4),(2,5)]
 
-const NUM_SQ_ADD = [0,1,2,3]
+const NUM_SQ_ADD = [0,1,2]
 const NUM_SQ_MULT = [1.0, 1.1, 1.2, 1.5, 2.0]
 
 # include functions that execute single or multiple experiments
@@ -33,7 +36,9 @@ include("exec_multiple.jl")
 # check the command line arguments
 num_args = length(ARGS)
 ## by default we run experiments on all examples
-str_example = "all" # or "scroll", "cubic", or "Veronese"
+# allowed options: "small", "scroll", "cubic", or "Veronese"
+# and "large", "scroll-large", "cubic-large"
+str_example = "small"
 if num_args > 0
     str_example = ARGS[1]
 end
@@ -52,18 +57,18 @@ end
 # function that conducts experiments on the specified examples
 function run_experiments()
     if num_repeat == 1
-        if str_example == "scroll" || str_example == "all"
+        if str_example == "scroll" || str_example == "small"
             vec_height = SCROLL_HEIGHTS[1]
             dim = length(vec_height)
             coord_ring = build_ring_scroll(vec_height)
             exec_single(coord_ring, dim+1)
         end
-        if str_example == "cubic" || str_example == "all"
+        if str_example == "cubic" || str_example == "small"
             deg_target = CUBIC_CURVE_DEG[1]
             _, coord_ring = generate_plane_cubic(deg_target)
             exec_single(coord_ring, 3)
         end
-        if str_example == "Veronese" || str_example == "all"
+        if str_example == "Veronese" || str_example == "small"
             dim, deg = VERONESE_DIM_DEG[1]
             coord_ring = build_ring_Veronese(dim, deg)
             num_sq = get_BP_bound(coord_ring)
@@ -73,17 +78,25 @@ function run_experiments()
         # prepare the inputs
         EXAMPLE = String[]
         IDX2PAR = Int[]
-        if str_example == "scroll" || str_example == "all"
+        if str_example == "scroll" || str_example == "small"
             append!(EXAMPLE, ["scroll" for _ in 1:length(SCROLL_HEIGHTS)])
             append!(IDX2PAR, collect(1:length(SCROLL_HEIGHTS)))
         end
-        if str_example == "cubic" || str_example == "all"
+        if str_example == "cubic" || str_example == "small"
             append!(EXAMPLE, ["cubic" for _ in 1:length(CUBIC_CURVE_DEG)])
             append!(IDX2PAR, collect(1:length(CUBIC_CURVE_DEG)))
         end
-        if str_example == "Veronese" || str_example == "all"
+        if str_example == "Veronese" || str_example == "small"
             append!(EXAMPLE, ["Veronese" for _ in 1:length(VERONESE_DIM_DEG)])
             append!(IDX2PAR, collect(1:length(VERONESE_DIM_DEG)))
+        end
+        if str_example == "scroll-large" || str_example == "large"
+            append!(EXAMPLE, ["scroll-large" for _ in 1:length(SCROLL_HEIGHTS_LARGE)])
+            append!(IDX2PAR, collect(1:length(SCROLL_HEIGHTS_LARGE)))
+        end
+        if str_example == "cubic-large" || str_example == "large"
+            append!(EXAMPLE, ["cubic-large" for _ in 1:length(CUBIC_CURVE_DEG_LARGE)])
+            append!(IDX2PAR, collect(1:length(CUBIC_CURVE_DEG_LARGE)))
         end
         # prepare the outputs
         NAME = String[]
@@ -102,8 +115,13 @@ function run_experiments()
         curve_coeff = Dict{Vector{Int},Int}() # for cubic curves only
         str_curve = ""
         for idx = 1:num_experiment
-            if EXAMPLE[idx] == "scroll"
-                vec_height = SCROLL_HEIGHTS[IDX2PAR[idx]]
+            if EXAMPLE[idx] == "scroll" || EXAMPLE[idx] == "scroll-large"
+                vec_height = []
+                if EXAMPLE[idx] == "scroll"
+                    vec_height = SCROLL_HEIGHTS[IDX2PAR[idx]]
+                else
+                    vec_height = SCROLL_HEIGHTS_LARGE[IDX2PAR[idx]]
+                end
                 # create the name tag from the heights
                 append!(NAME, ["Scroll:"*join(vec_height, "-") for _ in NUM_SQ_ADD])
                 dim = length(vec_height) + 1
@@ -111,8 +129,13 @@ function run_experiments()
                 append!(RANK, vec_rank)
                 # create the coordinate ring
                 coord_ring = build_ring_scroll(vec_height)
-            elseif EXAMPLE[idx] == "cubic"
-                deg = CUBIC_CURVE_DEG[IDX2PAR[idx]]
+            elseif EXAMPLE[idx] == "cubic" || EXAMPLE[idx] == "cubic-large"
+                deg = 0
+                if EXAMPLE[idx] == "cubic"
+                    deg = CUBIC_CURVE_DEG[IDX2PAR[idx]]
+                else
+                    deg = CUBIC_CURVE_DEG_LARGE[IDX2PAR[idx]]
+                end
                 if IDX2PAR[idx] == 1
                     curve_coeff, coord_ring = generate_plane_cubic(deg) # smoothness is checked here
                     # construct its string name for output

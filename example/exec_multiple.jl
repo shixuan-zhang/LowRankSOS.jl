@@ -39,7 +39,7 @@ function exec_multiple(
             tuple_start ./= norm(tuple_start)
             # solve the problem and record the time
             time_start = time()
-            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, print_level=1) 
+            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, val_threshold=VAL_TOL, print_level=1) 
             time_end = time()
             # check the optimal value
             if val_res < VAL_TOL * max(1.0, norm(target_sos))
@@ -78,7 +78,7 @@ function exec_multiple(
             println()
             println("Run CSDP interior-point methods with ", coord_ring.dim1, " squares...")
             time_start = time()
-            vec_sol, val_res, flag_conv, sol_rank = call_CSDP(target_sos, coord_ring, print_level=1)
+            vec_sol, val_res, flag_conv, sol_rank = call_CSDP(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1)
             time_end = time()
             if flag_conv
                 compare_time[idx] = time_end - time_start

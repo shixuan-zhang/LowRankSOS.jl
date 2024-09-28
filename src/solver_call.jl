@@ -32,8 +32,8 @@ function call_NLopt(
         coord_ring::CoordinateRing2;
         tuple_linear_forms::Vector{Float64} = Float64[],
         val_threshold::Float64 = VAL_TOL,
-        num_max_time::Int = 3600,
-        num_max_eval::Int = 2*NUM_MAX_ITER,
+        num_max_time::Int = -1,
+        num_max_eval::Int = -1,
         print_level::Int = 0
     )
     # generate a starting point randomly if not supplied
@@ -51,8 +51,13 @@ function call_NLopt(
     # set the objective function
     opt.min_objective = (l,g)->obj_NLopt!(l,g,coord_ring,vec_target_quadric)
     # set the forced termination criterion
-    opt.maxeval = num_max_eval
-    opt.maxtime = num_max_time
+    if num_max_eval > 0
+        maxeval!(opt, num_max_eval)
+    end
+    if num_max_time > 0
+        maxtime!(opt, num_max_time)
+    end
+    stopval!(opt, val_threshold)
     # call the solver and measure the total time
     time_start = time()
     try 
@@ -91,7 +96,9 @@ function call_CSDP(
     # define a JuMP model for SDP feasibility modeling
     M = Model(CSDP.Optimizer)
     set_attribute(M, "printlevel", print_level)
-    set_attribute(M, "axtol", val_threshold)
+    # set the primal feasibility tolerance, 
+    # which is half the accuracy of the squared-norm residual tolerance
+    set_attribute(M, "axtol", sqrt(val_threshold))
     # define a PSD Gram matrix
     G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD, base_name="G")
     # prepare the linear constraints for each coordinate in R₂
