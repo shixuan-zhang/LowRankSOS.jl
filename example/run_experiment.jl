@@ -17,16 +17,16 @@ const SCROLL_HEIGHTS = [[5,10],[10,15],[15,20],
                         [5,10,15],[10,20,30],[20,30,40],
                         [5,10,15,20],[10,15,20,25],
                         [15,20,25,30],[5,10,15,20,25]]
-const SCROLL_HEIGHTS_LARGE = [[100,200],[300,400],[500,600],[700,800],
-                              [200,300,400],[300,400,500]]
+const SCROLL_HEIGHTS_LARGE = [[50,100],[100,200],[200,300],
+                              [300,400],[500,600],[700,800]]
 const CUBIC_CURVE_DEG = [10,20,30,40,50]
 const CUBIC_CURVE_DEG_LARGE = [100,200,300,400,500]
 const VERONESE_DIM_DEG = [(4,2),(6,2),(8,2),(10,2),
                           (3,3),(4,3),(5,3),
                           (2,4),(3,4),(2,5)]
 
-const NUM_SQ_ADD = [0,1,2]
-const NUM_SQ_MULT = [1.0, 1.1, 1.2, 1.5, 2.0]
+const NUM_SQ_ADD = [0,1,2,3]
+const NUM_SQ_MULT = [1.0,1.1,1.2,1.5,2.0]
 
 # include functions that execute single or multiple experiments
 include("exec_single.jl")
@@ -119,13 +119,15 @@ function run_experiments()
                 vec_height = []
                 if EXAMPLE[idx] == "scroll"
                     vec_height = SCROLL_HEIGHTS[IDX2PAR[idx]]
+                    dim = length(vec_height) + 1
+                    vec_rank = dim .+ NUM_SQ_ADD
                 else
                     vec_height = SCROLL_HEIGHTS_LARGE[IDX2PAR[idx]]
+                    dim = length(vec_height) + 1
+                    vec_rank = [dim]
                 end
                 # create the name tag from the heights
-                append!(NAME, ["Scroll:"*join(vec_height, "-") for _ in NUM_SQ_ADD])
-                dim = length(vec_height) + 1
-                vec_rank = dim .+ NUM_SQ_ADD
+                append!(NAME, ["Scroll:"*join(vec_height, "-") for _ in vec_rank])
                 append!(RANK, vec_rank)
                 # create the coordinate ring
                 coord_ring = build_ring_scroll(vec_height)
@@ -133,8 +135,10 @@ function run_experiments()
                 deg = 0
                 if EXAMPLE[idx] == "cubic"
                     deg = CUBIC_CURVE_DEG[IDX2PAR[idx]]
+                    vec_rank = 3 .+ NUM_SQ_ADD
                 else
                     deg = CUBIC_CURVE_DEG_LARGE[IDX2PAR[idx]]
+                    vec_rank = [3]
                 end
                 if IDX2PAR[idx] == 1
                     curve_coeff, coord_ring = generate_plane_cubic(deg) # smoothness is checked here
@@ -152,17 +156,16 @@ function run_experiments()
                     coord_ring = build_ring_from_plane_curve(curve_coeff, deg, check_smooth=false)
                 end
                 # create the name tag from the cubic coefficients and target degree
-                append!(NAME, [str_curve*":"*string(deg) for _ in NUM_SQ_ADD])
-                vec_rank = 3 .+ NUM_SQ_ADD
+                append!(NAME, [str_curve*":"*string(deg) for _ in vec_rank])
                 append!(RANK, vec_rank)
             elseif EXAMPLE[idx] == "Veronese"
                 dim, deg = VERONESE_DIM_DEG[IDX2PAR[idx]]
                 # create the name tag from the heights
-                append!(NAME, ["Veronese:"*join([dim, deg], "-") for _ in NUM_SQ_MULT])
+                vec_rank = ceil.(Int, num_BP_bound .* NUM_SQ_MULT)
+                append!(NAME, ["Veronese:"*join([dim, deg], "-") for _ in vec_rank])
+                append!(RANK, vec_rank)
                 coord_ring = build_ring_Veronese(dim, deg)
                 num_BP_bound = get_BP_bound(coord_ring)
-                vec_rank = ceil.(Int, num_BP_bound .* NUM_SQ_MULT)
-                append!(RANK, vec_rank)
             end
             # execute the experiment
             succ, fail, time, dist, sdpt, sdpr_min, sdpr_med = exec_multiple(coord_ring, vec_rank, flag_comp=true)
