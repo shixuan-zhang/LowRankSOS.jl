@@ -152,3 +152,74 @@ function call_CSDP(
         return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
     end
 end
+
+using Hypatia
+
+# function that calls Hypatia (interior-point) to solve the full-rank certification problem
+function call_Hypatia(
+        vec_target_quadric::Vector{Float64},
+        coord_ring::CoordinateRing2;
+        val_threshold::Float64 = VAL_TOL,
+        print_level::Int = 0
+    )
+    # alias the target quadric vector
+    F = vec_target_quadric
+    # define a JuMP model for SDP feasibility modeling
+    M = Model(Hypatia.Optimizer)
+    set_attribute(M, "verbose", print_level>0)
+    # set the primal feasibility tolerance, 
+    # which is half the accuracy of the squared-norm residual tolerance
+    set_attribute(M, "x_feas", sqrt(val_threshold))
+    # define a PSD Gram matrix
+    G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD, base_name="G")
+    # prepare the linear constraints for each coordinate in R₂
+    L = AffExpr[]
+    for k in 1:coord_ring.dim2
+        push!(L, 0)
+    end
+    for i in 1:coord_ring.dim1
+        for j in i:coord_ring.dim1
+            # get the symmetric index of the Gram matrix
+            m = idx_sym(i,j)
+            # set the multiplicative factor for off-diagonals
+            c = (i != j) ? 2 : 1
+            # loop over the quadratic monomials to fill in the nonzero entries in the column
+            for n in findnz(coord_ring.prod[m])[1]
+                L[n] += coord_ring.prod[m][n]*G[i,j]*c
+            end
+        end
+    end
+    @constraint(M, [k=1:coord_ring.dim2], L[k] == F[k])
+    # set the trivial objective for feasibility only
+    @objective(M, Min, sum(G[i,i] for i in 1:coord_ring.dim1))
+    # print the model for correctness checking
+    if print_level > 0
+        println(" "^print_level * "The Hypatia model information:")
+        show(M)
+        println()
+    end
+    # call the solver and measure the total time
+    time_start = time()
+    try 
+        JuMP.optimize!(M)
+        time_end = time()
+        # check the solution summary
+        if print_level >= 0
+            println(" "^print_level * "The Hypatia interior-point solver terminates with status: ", primal_status(M))
+            printfmtln("{} The Hypatia solver uses {:<5.2f} seconds.", 
+                       " "^print_level, time_end-time_start)
+        end
+        if is_solved_and_feasible(M)
+            G_sol = value.(G)
+            r = rank(G_sol, rtol=val_threshold)
+            println(" "^print_level * "The solution has rank = ", r)
+            sol_opt = vec(cholesky(G_sol).L)
+            return sol_opt, 0.0, true, r
+        else
+            return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
+        end
+    catch err
+        println(" "^print_level * "The Hypatia solver returns error: " * err.msg)
+        return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
+    end
+end

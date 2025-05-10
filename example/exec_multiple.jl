@@ -76,9 +76,9 @@ function exec_multiple(
         if flag_comp
             flush(stdout)
             println()
-            println("Run CSDP interior-point methods with ", coord_ring.dim1, " squares...")
+            println("Run Hypatia interior-point methods with ", coord_ring.dim1, " squares...")
             time_start = time()
-            vec_sol, val_res, flag_conv, sol_rank = call_CSDP(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1)
+            vec_sol, val_res, flag_conv, sol_rank = call_Hypatia(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1)
             time_end = time()
             if flag_conv
                 compare_time[idx] = time_end - time_start
