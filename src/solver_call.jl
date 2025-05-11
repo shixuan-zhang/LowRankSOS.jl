@@ -81,24 +81,44 @@ end
 # provide methods of calling external solvers (e.g. CSDP) 
 # to solve the full-rank formulation for comparison
 
-using JuMP, CSDP
+using JuMP, CSDP, Hypatia, Clarabel, SCS
 
-
-# function that calls CSDP (interior-point) to solve the full-rank certification problem
-function call_CSDP(
+# function that calls JuMP-supported (mostly interior-point) solvers to solve the full-rank certification problem
+function call_JuMP_solver(
         vec_target_quadric::Vector{Float64},
         coord_ring::CoordinateRing2;
         val_threshold::Float64 = VAL_TOL,
-        print_level::Int = 0
+        print_level::Int = 0,
+        solver_name::String = "CSDP"
     )
     # alias the target quadric vector
     F = vec_target_quadric
     # define a JuMP model for SDP feasibility modeling
-    M = Model(CSDP.Optimizer)
-    set_attribute(M, "printlevel", print_level)
-    # set the primal feasibility tolerance, 
+    M = Model()
+    # set the solver and the primal feasibility tolerance
     # which is half the accuracy of the squared-norm residual tolerance
-    set_attribute(M, "axtol", sqrt(val_threshold))
+    if solver_name == "CSDP"
+        set_optimizer(M, CSDP.Optimizer)
+        set_attribute(M, "printlevel", print_level)
+        set_attribute(M, "axtol", sqrt(val_threshold))
+    elseif solver_name == "Hypatia"
+        set_optimizer(M, Hypatia.Optimizer)
+        set_attribute(M, "verbose", print_level>0)
+        set_attribute(M, "x_feas", sqrt(val_threshold))
+    elseif solver_name == "Clarabel"
+        set_optimizer(M, Hypatia.Optimizer)
+        set_attribute(M, "verbose", print_level>0)
+        set_attribute(M, "tol_feas", sqrt(val_threshold))
+    elseif solver_name == "SCS"
+        set_optimizer(M, SCS.Optimizer)
+        set_attribute(M, "verbose", print_level>0)
+        set_attribute(M, "eps_infeas", sqrt(val_threshold))
+    else
+        println("ERROR: Unsupported SDP solver; use the default CSDP instead...")
+        set_optimizer(M, CSDP.Optimizer)
+        set_attribute(M, "printlevel", print_level)
+        set_attribute(M, "axtol", sqrt(val_threshold))
+    end
     # define a PSD Gram matrix
     G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD, base_name="G")
     # prepare the linear constraints for each coordinate in R₂
@@ -123,7 +143,7 @@ function call_CSDP(
     @objective(M, Min, sum(G[i,i] for i in 1:coord_ring.dim1))
     # print the model for correctness checking
     if print_level > 0
-        println(" "^print_level * "The CSDP model information:")
+        println(" "^print_level * "The " * solver_name * " model information:")
         show(M)
         println()
     end
@@ -134,92 +154,22 @@ function call_CSDP(
         time_end = time()
         # check the solution summary
         if print_level >= 0
-            println(" "^print_level * "The CSDP interior-point solver terminates with status: ", primal_status(M))
-            printfmtln("{} The CSDP solver uses {:<5.2f} seconds.", 
+            println(" "^print_level * "The " * solver_name * " solver terminates with status: ", primal_status(M))
+            printfmtln("{} It uses {:<5.2f} seconds.", 
                        " "^print_level, time_end-time_start)
         end
         if is_solved_and_feasible(M)
             G_sol = value.(G)
             r = rank(G_sol, rtol=val_threshold)
             println(" "^print_level * "The solution has rank = ", r)
-            sol_opt = vec(cholesky(G_sol).L)
+            sol_opt = vec(cholesky(G_sol,check=false).L)
             return sol_opt, 0.0, true, r
         else
             return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
         end
     catch err
-        println(" "^print_level * "The CSDP solver returns error: " * err.msg)
+        println(" "^print_level * "The " * solver_name * " solver returns error: " * err.msg)
         return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
     end
 end
 
-using Hypatia
-
-# function that calls Hypatia (interior-point) to solve the full-rank certification problem
-function call_Hypatia(
-        vec_target_quadric::Vector{Float64},
-        coord_ring::CoordinateRing2;
-        val_threshold::Float64 = VAL_TOL,
-        print_level::Int = 0
-    )
-    # alias the target quadric vector
-    F = vec_target_quadric
-    # define a JuMP model for SDP feasibility modeling
-    M = Model(Hypatia.Optimizer)
-    set_attribute(M, "verbose", print_level>0)
-    # set the primal feasibility tolerance, 
-    # which is half the accuracy of the squared-norm residual tolerance
-    set_attribute(M, "x_feas", sqrt(val_threshold))
-    # define a PSD Gram matrix
-    G = @variable(M, [1:coord_ring.dim1,1:coord_ring.dim1], PSD, base_name="G")
-    # prepare the linear constraints for each coordinate in R₂
-    L = AffExpr[]
-    for k in 1:coord_ring.dim2
-        push!(L, 0)
-    end
-    for i in 1:coord_ring.dim1
-        for j in i:coord_ring.dim1
-            # get the symmetric index of the Gram matrix
-            m = idx_sym(i,j)
-            # set the multiplicative factor for off-diagonals
-            c = (i != j) ? 2 : 1
-            # loop over the quadratic monomials to fill in the nonzero entries in the column
-            for n in findnz(coord_ring.prod[m])[1]
-                L[n] += coord_ring.prod[m][n]*G[i,j]*c
-            end
-        end
-    end
-    @constraint(M, [k=1:coord_ring.dim2], L[k] == F[k])
-    # set the trivial objective for feasibility only
-    @objective(M, Min, sum(G[i,i] for i in 1:coord_ring.dim1))
-    # print the model for correctness checking
-    if print_level > 0
-        println(" "^print_level * "The Hypatia model information:")
-        show(M)
-        println()
-    end
-    # call the solver and measure the total time
-    time_start = time()
-    try 
-        JuMP.optimize!(M)
-        time_end = time()
-        # check the solution summary
-        if print_level >= 0
-            println(" "^print_level * "The Hypatia interior-point solver terminates with status: ", primal_status(M))
-            printfmtln("{} The Hypatia solver uses {:<5.2f} seconds.", 
-                       " "^print_level, time_end-time_start)
-        end
-        if is_solved_and_feasible(M)
-            G_sol = value.(G)
-            r = rank(G_sol, rtol=val_threshold)
-            println(" "^print_level * "The solution has rank = ", r)
-            sol_opt = vec(cholesky(G_sol).L)
-            return sol_opt, 0.0, true, r
-        else
-            return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
-        end
-    catch err
-        println(" "^print_level * "The Hypatia solver returns error: " * err.msg)
-        return fill(NaN,coord_ring.dim1,coord_ring.dim1), NaN, false
-    end
-end

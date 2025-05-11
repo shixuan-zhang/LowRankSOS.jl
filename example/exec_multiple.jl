@@ -1,7 +1,7 @@
 function exec_multiple(
         coord_ring::CoordinateRing2,
         set_num_sq::Vector{Int};
-        flag_comp::Bool = false
+        solver_comp::Vector{String} = String[]
     )
     # record the main experiment results
     result_success = Dict{Int,Vector{Int}}()
@@ -12,12 +12,13 @@ function exec_multiple(
         result_seconds[num] = zeros(num_repeat)
         result_residue[num] = zeros(num_repeat)
     end
-    # record the comparison against semidefinite programming
-    compare_time = Float64[]
-    compare_rank = Int[]
-    if flag_comp
-        compare_time = zeros(num_repeat)
-        compare_rank = zeros(Int,num_repeat)
+    # record the comparison(s) against semidefinite programming
+    num_compare = length(solver_comp)
+    compare_time = Dict(name => Float64[] for name in solver_comp)
+    compare_rank = Dict(name => Float64[] for name in solver_comp)
+    for name in solver_comp
+        compare_time[name] = zeros(num_repeat)
+        compare_rank[name] = zeros(Int,num_repeat)
     end
     for idx in 1:num_repeat
         println("\n" * "="^80)
@@ -72,20 +73,20 @@ function exec_multiple(
                 end
             end
         end
-        # compare against the standard semidefinite programming solver
-        if flag_comp
+        # compare against the standard semidefinite programming solver(s)
+        for solver_name in solver_comp
             flush(stdout)
             println()
-            println("Run Hypatia interior-point methods with ", coord_ring.dim1, " squares...")
+            println("Run for comparison " * solver_name * " solver with up to ", coord_ring.dim1, " squares...")
             time_start = time()
-            vec_sol, val_res, flag_conv, sol_rank = call_Hypatia(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1)
+            vec_sol, val_res, flag_conv, sol_rank = call_JuMP_solver(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1, solver_name=solver_name)
             time_end = time()
             if flag_conv
-                compare_time[idx] = time_end - time_start
-                compare_rank[idx] = sol_rank
+                compare_time[solver_name][idx] = time_end - time_start
+                compare_rank[solver_name][idx] = sol_rank
             else
-                compare_time[idx] = NaN
-                compare_rank[idx] = -1
+                compare_time[solver_name][idx] = NaN
+                compare_rank[solver_name][idx] = -1
             end
         end
     end
@@ -100,8 +101,8 @@ function exec_multiple(
     FAIL = [count(x->x<0, result_success[num]) for num in set_num_sq]
     TIME = [mean(filter(!isnan, result_seconds[num])) for num in set_num_sq]
     DIST = [maximum(result_residue[num]) for num in set_num_sq]
-    SDPT = [mean(compare_time) for num in set_num_sq]
-    SDPR_MIN = [minimum(filter(x->x>0,compare_rank)) for num in set_num_sq]
-    SDPR_MED = [median(filter(x->x>0,compare_rank)) for num in set_num_sq]
-    return SUCC, FAIL, TIME, DIST, SDPT, SDPR_MIN, SDPR_MED
+    SDPTIME = Dict([name => [mean(compare_time[name]) for _ in set_num_sq] for name in solver_comp])
+    SDPRANK_MIN = Dict([name => [minimum(filter(x->x>0,compare_rank[name])) for _ in set_num_sq] for name in solver_comp])
+    SDPRANK_MED = Dict([name => [median(filter(x->x>0,compare_rank[name])) for _ in set_num_sq] for name in solver_comp])
+    return SUCC, FAIL, TIME, DIST, SDPTIME, SDPRANK_MIN, SDPRANK_MED
 end

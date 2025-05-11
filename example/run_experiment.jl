@@ -11,6 +11,7 @@ using Formatting
 # set the experiment parameters
 const VAL_TOL = 1.0e-8
 const NUM_REPEAT = 100
+const NUM_REPEAT_LARGE = 5
 const REL_MAX_ITER = 100
 const SCROLL_HEIGHTS = [[5,10],[10,15],[15,20],
                         [30,40],[50,60],[70,80],
@@ -27,6 +28,7 @@ const VERONESE_DIM_DEG = [(4,2),(6,2),(8,2),(10,2),
 
 const NUM_SQ_ADD = [0,1,2,3]
 const NUM_SQ_MULT = [1.0,1.1,1.2,1.5,2.0]
+const SOLVER_COMP = ["Hypatia", "Clarabel", "SCS"]
 
 # include functions that execute single or multiple experiments
 include("exec_single.jl")
@@ -45,6 +47,9 @@ end
 ## by default we run batch experiments and retrieve the statistics
 ### when `num_repeat == 1` we only run the experiment with the first parameter in the arrays
 num_repeat = NUM_REPEAT
+if str_example in ["large", "scroll-large", "cubic_large"]
+    num_repeat = NUM_REPEAT_LARGE
+end
 if num_args > 1
     num_repeat = parse(Int, ARGS[2])
 end
@@ -105,9 +110,14 @@ function run_experiments()
         FAIL = Int[]
         TIME = Float64[]
         DIST = Float64[]
-        SDPT = Float64[]
-        SDPR_MIN = Int[]
-        SDPR_MED = Int[]
+        SDPTIME = Dict{String,Vector{Float64}}()
+        SDPRANK_MIN = Dict{String, Vector{Int}}()
+        SDPRANK_MED = Dict{String, Vector{Int}}()
+        for name in SOLVER_COMP
+            SDPTIME[name] = Float64[]
+            SDPRANK_MIN[name] = Int[]
+            SDPRANK_MED[name] = Int[]
+        end
         # start the main experiments
         num_experiment = length(EXAMPLE)
         vec_rank = Int[]
@@ -168,25 +178,29 @@ function run_experiments()
                 num_BP_bound = get_BP_bound(coord_ring)
             end
             # execute the experiment
-            succ, fail, time, dist, sdpt, sdpr_min, sdpr_med = exec_multiple(coord_ring, vec_rank, flag_comp=true)
+            succ, fail, time, dist, sdptime, sdprank_min, sdprank_med = exec_multiple(coord_ring, vec_rank, solver_comp=SOLVER_COMP)
             append!(SUCC, succ)
             append!(FAIL, fail)
             append!(TIME, time)
             append!(DIST, dist)
-            append!(SDPT, sdpt)
-            append!(SDPR_MIN, sdpr_min)
-            append!(SDPR_MED, ceil.(Int,sdpr_med))
+            for name in SOLVER_COMP
+                append!(SDPTIME[name], sdptime[name])
+                append!(SDPRANK_MIN[name], sdprank_min[name])
+                append!(SDPRANK_MED[name], ceil.(Int,sdprank_med[name]))
+            end
             # update the output file
-            result = DataFrame(:NAME => NAME, 
-                               :RANK => RANK, 
-                               :SUCC => SUCC, 
-                               :TIME => TIME, 
-                               :FAIL => FAIL, 
-                               :DIST => DIST,
-                               :SDPT => SDPT,
-                               :SDPR_MIN => SDPR_MIN,
-                               :SDPR_MED => SDPR_MED)
-            CSV.write(str_output, result)
+            result = ["NAME" => NAME,
+                      "RANK" => RANK,
+                      "SUCC" => SUCC,
+                      "TIME" => TIME,
+                      "FAIL" => FAIL,
+                      "DIST" => DIST]
+            for name in SOLVER_COMP
+                append!(result, ["TIME-"*name => SDPTIME[name],
+                                 "RANK-MIN-"*name => SDPRANK_MIN[name],
+                                 "RANK-MED-"*name => SDPRANK_MED[name]])
+            end
+            CSV.write(str_output, DataFrame(result))
             println()
         end
     end
