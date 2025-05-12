@@ -106,7 +106,7 @@ function call_JuMP_solver(
         set_attribute(M, "verbose", print_level>0)
         set_attribute(M, "x_feas", sqrt(val_threshold))
     elseif solver_name == "Clarabel"
-        set_optimizer(M, Hypatia.Optimizer)
+        set_optimizer(M, Clarabel.Optimizer)
         set_attribute(M, "verbose", print_level>0)
         set_attribute(M, "tol_feas", sqrt(val_threshold))
     elseif solver_name == "SCS"
