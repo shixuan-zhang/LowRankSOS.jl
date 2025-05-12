@@ -43,7 +43,7 @@ function exec_multiple(
             vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, val_threshold=VAL_TOL, print_level=1) 
             time_end = time()
             # check the optimal value
-            if val_res < VAL_TOL * max(1.0, norm(target_sos))
+            if val_res < VAL_TOL
                 result_success[num_square][idx] = 1
                 result_seconds[num_square][idx] = time_end-time_start
             else
@@ -64,9 +64,9 @@ function exec_multiple(
                                                         tuple_linear_forms=tuple_start, 
                                                         str_descent_method="lBFGS-NLopt", 
                                                         print_level=1, 
-                                                        val_threshold=VAL_TOL*max(1.0,norm(target_sos)))
+                                                        val_threshold=VAL_TOL)
                     vec_sos = get_sos(vec_sol, coord_ring)
-                    if norm(vec_sos-target_sos) < VAL_TOL*max(1.0,norm(target_sos))
+                    if norm(vec_sos-target_sos) < VAL_TOL
                         result_success[num_square][idx] = 2
                         result_residue[num_square][idx] = 0.0
                     end

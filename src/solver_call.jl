@@ -57,7 +57,7 @@ function call_NLopt(
     if num_max_time > 0
         maxtime!(opt, num_max_time)
     end
-    stopval!(opt, val_threshold)
+    stopval!(opt, val_threshold^2)
     # call the solver and measure the total time
     time_start = time()
     try 
