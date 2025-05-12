@@ -28,7 +28,7 @@ const VERONESE_DIM_DEG = [(4,2),(6,2),(8,2),(10,2),
 
 const NUM_SQ_ADD = [0,1,2,3]
 const NUM_SQ_MULT = [1.0,1.1,1.2,1.5,2.0]
-const SOLVER_COMP = ["CSDP", "SCS", "Hypatia", "Clarabel"]
+const SOLVER_COMP = ["CSDP", "SCS", "Hypatia"] # Clarabel causes OOM on Slurm Clusters
 
 # include functions that execute single or multiple experiments
 include("exec_single.jl")
