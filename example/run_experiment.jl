@@ -28,7 +28,7 @@ const VERONESE_DIM_DEG = [(4,2),(6,2),(8,2),(10,2),
 
 const NUM_SQ_ADD = [0,1,2,3]
 const NUM_SQ_MULT = [1.0,1.1,1.2,1.5,2.0]
-const SOLVER_COMP = ["CSDP", "SCS"] # Hypatia and Clarabel seem to cause OOM on Slurm Clusters
+const SOLVER_COMP = ["CSDP", "SCS", "Hypatia", "Clarabel"] 
 
 # include functions that execute single or multiple experiments
 include("exec_single.jl")
@@ -170,12 +170,12 @@ function run_experiments()
                 append!(RANK, vec_rank)
             elseif EXAMPLE[idx] == "Veronese"
                 dim, deg = VERONESE_DIM_DEG[IDX2PAR[idx]]
+                coord_ring = build_ring_Veronese(dim, deg)
+                num_BP_bound = get_BP_bound(coord_ring)
                 # create the name tag from the heights
                 vec_rank = ceil.(Int, num_BP_bound .* NUM_SQ_MULT)
                 append!(NAME, ["Veronese:"*join([dim, deg], "-") for _ in vec_rank])
                 append!(RANK, vec_rank)
-                coord_ring = build_ring_Veronese(dim, deg)
-                num_BP_bound = get_BP_bound(coord_ring)
             end
             # execute the experiment
             succ, fail, time, dist, sdptime, sdprank_min, sdprank_med = exec_multiple(coord_ring, vec_rank, solver_comp=SOLVER_COMP)
