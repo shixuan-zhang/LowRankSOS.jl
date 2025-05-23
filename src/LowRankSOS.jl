@@ -13,7 +13,7 @@ export embed_tuple, get_BP_bound
 export solve_gradient_descent, solve_BFGS_descent, solve_lBFGS_descent
 export solve_CG_descent, solve_CG_push_descent
 export move_direct_path
-export call_NLopt
+export call_NLopt, call_JuMP_solver
 
 # define common constants
 const NUM_DIG = 8

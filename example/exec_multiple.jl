@@ -1,8 +1,9 @@
 function exec_multiple(
         coord_ring::CoordinateRing2,
-        set_num_sq::Vector{Int}
+        set_num_sq::Vector{Int};
+        solver_comp::Vector{String} = String[]
     )
-    # record whether each experiment run achieves global minimum 0
+    # record the main experiment results
     result_success = Dict{Int,Vector{Int}}()
     result_seconds = Dict{Int,Vector{Float64}}()
     result_residue = Dict{Int,Vector{Float64}}()
@@ -10,6 +11,14 @@ function exec_multiple(
         result_success[num] = zeros(Int,num_repeat)
         result_seconds[num] = zeros(num_repeat)
         result_residue[num] = zeros(num_repeat)
+    end
+    # record the comparison(s) against semidefinite programming
+    num_compare = length(solver_comp)
+    compare_time = Dict(name => Float64[] for name in solver_comp)
+    compare_rank = Dict(name => Float64[] for name in solver_comp)
+    for name in solver_comp
+        compare_time[name] = zeros(num_repeat)
+        compare_rank[name] = zeros(Int,num_repeat)
     end
     for idx in 1:num_repeat
         println("\n" * "="^80)
@@ -31,10 +40,10 @@ function exec_multiple(
             tuple_start ./= norm(tuple_start)
             # solve the problem and record the time
             time_start = time()
-            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, print_level=1) 
+            vec_sol, val_res, flag_conv = call_NLopt(num_square, target_sos, coord_ring, tuple_linear_forms=tuple_start, num_max_eval=coord_ring.dim1*REL_MAX_ITER, val_threshold=VAL_TOL, print_level=1) 
             time_end = time()
             # check the optimal value
-            if val_res < VAL_TOL * max(1.0, norm(target_sos))
+            if val_res < VAL_TOL
                 result_success[num_square][idx] = 1
                 result_seconds[num_square][idx] = time_end-time_start
             else
@@ -55,13 +64,29 @@ function exec_multiple(
                                                         tuple_linear_forms=tuple_start, 
                                                         str_descent_method="lBFGS-NLopt", 
                                                         print_level=1, 
-                                                        val_threshold=VAL_TOL*max(1.0,norm(target_sos)))
+                                                        val_threshold=VAL_TOL)
                     vec_sos = get_sos(vec_sol, coord_ring)
-                    if norm(vec_sos-target_sos) < VAL_TOL*max(1.0,norm(target_sos))
+                    if norm(vec_sos-target_sos) < VAL_TOL
                         result_success[num_square][idx] = 2
                         result_residue[num_square][idx] = 0.0
                     end
                 end
+            end
+        end
+        # compare against the standard semidefinite programming solver(s)
+        for solver_name in solver_comp
+            flush(stdout)
+            println()
+            println("Run for comparison " * solver_name * " solver with up to ", coord_ring.dim1, " squares...")
+            time_start = time()
+            vec_sol, val_res, flag_conv, sol_rank = call_JuMP_solver(target_sos, coord_ring, val_threshold=VAL_TOL, print_level=1, solver_name=solver_name)
+            time_end = time()
+            if flag_conv
+                compare_time[solver_name][idx] = time_end - time_start
+                compare_rank[solver_name][idx] = sol_rank
+            else
+                compare_time[solver_name][idx] = NaN
+                compare_rank[solver_name][idx] = -1
             end
         end
     end
@@ -76,5 +101,8 @@ function exec_multiple(
     FAIL = [count(x->x<0, result_success[num]) for num in set_num_sq]
     TIME = [mean(filter(!isnan, result_seconds[num])) for num in set_num_sq]
     DIST = [maximum(result_residue[num]) for num in set_num_sq]
-    return SUCC, FAIL, TIME, DIST
+    SDPTIME = Dict([name => [mean(compare_time[name]) for _ in set_num_sq] for name in solver_comp])
+    SDPRANK_MIN = Dict([name => [minimum(filter(x->x>0,compare_rank[name])) for _ in set_num_sq] for name in solver_comp])
+    SDPRANK_MED = Dict([name => [median(filter(x->x>0,compare_rank[name])) for _ in set_num_sq] for name in solver_comp])
+    return SUCC, FAIL, TIME, DIST, SDPTIME, SDPRANK_MIN, SDPRANK_MED
 end
