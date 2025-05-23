@@ -28,7 +28,8 @@ const VERONESE_DIM_DEG = [(4,2),(6,2),(8,2),(10,2),
 
 const NUM_SQ_ADD = [0,1,2,3]
 const NUM_SQ_MULT = [1.0,1.1,1.2,1.5,2.0]
-const SOLVER_COMP = ["CSDP", "SCS", "Hypatia", "Clarabel"] 
+const SDP_SOLVER_ALL = ["CSDP", "SCS", "Hypatia", "Clarabel"] 
+const SDP_SOLVER_LARGE = ["CSDP"] 
 
 # include functions that execute single or multiple experiments
 include("exec_single.jl")
@@ -44,11 +45,13 @@ str_example = "small"
 if num_args > 0
     str_example = ARGS[1]
 end
+solver_list = SDP_SOLVER_ALL
 ## by default we run batch experiments and retrieve the statistics
 ### when `num_repeat == 1` we only run the experiment with the first parameter in the arrays
 num_repeat = NUM_REPEAT
 if str_example in ["large", "scroll-large", "cubic_large"]
     num_repeat = NUM_REPEAT_LARGE
+    solver_list = SDP_SOLVER_LARGE
 end
 if num_args > 1
     num_repeat = parse(Int, ARGS[2])
@@ -113,7 +116,7 @@ function run_experiments()
         SDPTIME = Dict{String,Vector{Float64}}()
         SDPRANK_MIN = Dict{String, Vector{Int}}()
         SDPRANK_MED = Dict{String, Vector{Int}}()
-        for name in SOLVER_COMP
+        for name in solver_list
             SDPTIME[name] = Float64[]
             SDPRANK_MIN[name] = Int[]
             SDPRANK_MED[name] = Int[]
@@ -178,12 +181,12 @@ function run_experiments()
                 append!(RANK, vec_rank)
             end
             # execute the experiment
-            succ, fail, time, dist, sdptime, sdprank_min, sdprank_med = exec_multiple(coord_ring, vec_rank, solver_comp=SOLVER_COMP)
+            succ, fail, time, dist, sdptime, sdprank_min, sdprank_med = exec_multiple(coord_ring, vec_rank, solver_comp=solver_list)
             append!(SUCC, succ)
             append!(FAIL, fail)
             append!(TIME, time)
             append!(DIST, dist)
-            for name in SOLVER_COMP
+            for name in solver_list
                 append!(SDPTIME[name], sdptime[name])
                 append!(SDPRANK_MIN[name], sdprank_min[name])
                 append!(SDPRANK_MED[name], ceil.(Int,sdprank_med[name]))
@@ -195,7 +198,7 @@ function run_experiments()
                       "TIME" => TIME,
                       "FAIL" => FAIL,
                       "DIST" => DIST]
-            for name in SOLVER_COMP
+            for name in solver_list
                 append!(result, ["TIME-"*name => SDPTIME[name],
                                  "RANK-MIN-"*name => SDPRANK_MIN[name],
                                  "RANK-MED-"*name => SDPRANK_MED[name]])
